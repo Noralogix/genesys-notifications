@@ -6,9 +6,9 @@ namespace Genesys.Client.Notifications.Responses
     {
         private const string ChannelMetadata = "channel.metadata";
         private const string Message = "websocket heartbeat";
-        internal static bool TryHandle(WebsocketMessage response, ISubject<HeartbeatResponse> subject)
+        internal static bool TryHandle(GenesysMessage message, ISubject<HeartbeatResponse> subject)
         {
-            if (response.TopicName() == ChannelMetadata && response.Message()?.ToLower() == Message)
+            if (message.TopicName() == ChannelMetadata && message.Message()?.ToLower() == Message)
             {
                 subject.OnNext(new HeartbeatResponse());
                 return true;

@@ -66,13 +66,13 @@ namespace Genesys.Client.Notifications
         }
         private bool HandleObjectMessage(string msg)
         {
-            var response = WebsocketMessage.Parse(msg);
+            var gmessage = GenesysMessage.Parse(msg);
             return
 
-                PongResponse.TryHandle(response, PongSubject) ||
-                HeartbeatResponse.TryHandle(response, HeartbeatsSubject) ||
-                SocketClosingResponse.TryHandle(response, SocketClosingSubject) ||
-                SubscriptionResponse.TryHandle(response, SubscriptionsSubject, _subscriptions);
+                PongResponse.TryHandle(gmessage, PongSubject) ||
+                HeartbeatResponse.TryHandle(gmessage, HeartbeatsSubject) ||
+                SocketClosingResponse.TryHandle(gmessage, SocketClosingSubject) ||
+                SubscriptionResponse.TryHandle(gmessage, SubscriptionsSubject, _subscriptions);
         }
         public void Dispose()
         {

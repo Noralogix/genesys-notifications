@@ -1,12 +1,10 @@
 ﻿using Genesys.Client.Notifications.Internal;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Text.Json;
 
 namespace Genesys.Client.Notifications.Responses
 {
-    internal partial class WebsocketMessage
+    internal partial class GenesysMessage
     {
         private readonly JsonElement _root;
         private readonly string _raw;
@@ -23,16 +21,16 @@ namespace Genesys.Client.Notifications.Responses
             .GetPropertyOrNull("eventBody")?
             .GetString();
 
-        public WebsocketMessage(JsonElement root, string raw)
+        public GenesysMessage(JsonElement root, string raw)
         {
             _root = root;
             _raw = raw;
         }
     }
 
-    internal partial class WebsocketMessage
+    internal partial class GenesysMessage
     {
-        public static WebsocketMessage Parse(string raw) => new WebsocketMessage(
+        public static GenesysMessage Parse(string raw) => new GenesysMessage(
             Json.TryParse(raw) ?? throw new Exception("Genesys WebSocket message is broken. Cant parse json."), raw
         );
     }

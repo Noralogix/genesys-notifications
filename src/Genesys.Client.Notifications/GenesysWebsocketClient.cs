@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reactive.Linq;
 using Websocket.Client;
 using Genesys.Client.Notifications.Responses;
@@ -9,14 +8,13 @@ namespace Genesys.Client.Notifications
     public class GenesysWebsocketClient : IDisposable
     {
         private readonly WebsocketClient _websocket;
-        private readonly Dictionary<string, Type> _subscriptions;
+        private readonly GenesysTopicSubscriptions _topicSubscriptions;
+        private readonly IDisposable _messageReceivedSubscription;                
 
-        private readonly IDisposable _messageReceivedSubscription;
-
-        public GenesysWebsocketClient(Uri uri, Dictionary<string, Type> subscriptions)
+        public GenesysWebsocketClient(GenesysTopicSubscriptions topicSubscriptions)
         {
-            _websocket = new WebsocketClient(uri);
-            _subscriptions = subscriptions;
+            _topicSubscriptions = topicSubscriptions;
+            _websocket = new WebsocketClient(topicSubscriptions.Uri);            
             _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
         }
 
@@ -71,7 +69,7 @@ namespace Genesys.Client.Notifications
                 PongResponse.TryHandle(gmessage, Streams.PongSubject) ||
                 HeartbeatResponse.TryHandle(gmessage, Streams.HeartbeatsSubject) ||
                 SocketClosingResponse.TryHandle(gmessage, Streams.SocketClosingSubject) ||
-                SubscriptionResponse.TryHandle(gmessage, Streams.SubscriptionsSubject, _subscriptions);
+                SubscriptionResponse.TryHandle(gmessage, Streams.SubscriptionsSubject, _topicSubscriptions);
         }
         public void Dispose()
         {

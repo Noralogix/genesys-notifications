@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reactive.Subjects;
 using System.Reactive.Linq;
 using Websocket.Client;
 using Genesys.Client.Notifications.Responses;
@@ -8,18 +7,7 @@ using Genesys.Client.Notifications.Responses;
 namespace Genesys.Client.Notifications
 {
     public class GenesysWebsocketClient : IDisposable
-    {        
-        private readonly Subject<object> SubscriptionsSubject = new Subject<object>();
-        private readonly Subject<HeartbeatResponse> HeartbeatsSubject = new Subject<HeartbeatResponse>();
-        private readonly Subject<SocketClosingResponse> SocketClosingSubject = new Subject<SocketClosingResponse>();
-        private readonly Subject<PongResponse> PongSubject = new Subject<PongResponse>();        
-
-        public IObservable<object> SubscriptionsStream => SubscriptionsSubject.AsObservable();
-        public IObservable<HeartbeatResponse> HeartbeatsStream => HeartbeatsSubject.AsObservable();
-        public IObservable<SocketClosingResponse> SocketClosingStream => SocketClosingSubject.AsObservable();
-        public IObservable<PongResponse> PongStream => PongSubject.AsObservable();
-
-
+    {
         private readonly WebsocketClient _websocket;
         private readonly Dictionary<string, Type> _subscriptions;
 
@@ -31,6 +19,11 @@ namespace Genesys.Client.Notifications
             _subscriptions = subscriptions;
             _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
         }
+
+        /// <summary>
+        /// Provided message streams
+        /// </summary>
+        public GenesysClientStreams Streams { get; } = new GenesysClientStreams();
 
         private void HandleMessage(ResponseMessage message)
         {
@@ -50,8 +43,9 @@ namespace Genesys.Client.Notifications
                 if (handled)
                     return;
 
-                //if (!string.IsNullOrWhiteSpace(messageSafe))
-                //    Streams.UnhandledMessageSubject.OnNext(messageSafe);
+                if (!string.IsNullOrWhiteSpace(messageSafe))
+                    Streams.UnhandledMessageSubject.OnNext(messageSafe);
+
                 //Log.Warn(L($"Unhandled response:  '{messageSafe}'"));
             }
             catch (Exception ex)
@@ -61,18 +55,17 @@ namespace Genesys.Client.Notifications
         }
 
         private bool HandleRawMessage(string msg)
-        {            
+        {
             return true;
         }
         private bool HandleObjectMessage(string msg)
         {
             var gmessage = GenesysMessage.Parse(msg);
             return
-
-                PongResponse.TryHandle(gmessage, PongSubject) ||
-                HeartbeatResponse.TryHandle(gmessage, HeartbeatsSubject) ||
-                SocketClosingResponse.TryHandle(gmessage, SocketClosingSubject) ||
-                SubscriptionResponse.TryHandle(gmessage, SubscriptionsSubject, _subscriptions);
+                PongResponse.TryHandle(gmessage, Streams.PongSubject) ||
+                HeartbeatResponse.TryHandle(gmessage, Streams.HeartbeatsSubject) ||
+                SocketClosingResponse.TryHandle(gmessage, Streams.SocketClosingSubject) ||
+                SubscriptionResponse.TryHandle(gmessage, Streams.SubscriptionsSubject, _subscriptions);
         }
         public void Dispose()
         {

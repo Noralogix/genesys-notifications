@@ -25,6 +25,12 @@ namespace Genesys.Client.Notifications
         /// </summary>
         public GenesysClientStreams Streams { get; } = new GenesysClientStreams();
 
+        public void Ping()
+        {
+            string message = "{'message':'ping'}";
+            _websocket.Send(message);
+        }
+
         private void HandleMessage(ResponseMessage message)
         {
             try

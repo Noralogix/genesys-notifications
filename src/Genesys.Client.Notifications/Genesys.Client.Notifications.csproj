@@ -2,7 +2,24 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Authors>Noralogix</Authors>
+    <Company>Noralogix</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>© Noralogix. All rights reserved.</Copyright>
+    <PackageTags>Genesys Purecloud notifications websocket</PackageTags>
+    <NeutralLanguage>en</NeutralLanguage>
+    <Description>Lightweight client for Genesys Notifications websocket API</Description>
+    <PackageIcon>noralogix.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\imgs\noralogix.png" Link="noralogix.png" />
+    <None Include="..\..\imgs\noralogix.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.8" />

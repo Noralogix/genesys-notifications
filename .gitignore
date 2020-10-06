@@ -8,3 +8,4 @@
 /sample/ConsoleApp/bin/Debug/netcoreapp3.1
 /sample/ConsoleApp/obj
 /sample/ConsoleApp/appsettings.dev.json
+/src/Genesys.Client.Notifications/bin

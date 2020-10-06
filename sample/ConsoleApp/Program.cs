@@ -47,37 +47,19 @@ namespace ConsoleApp
             {
                 await genesys.StartAsync(topics.ToDictionary(t => t.name, t => t.type));
 
-                var emails = genesys.Streams.Domain.OfType<QueueConversationChatEventTopicChatConversation>()
-                    .Subscribe(e =>
-                    {
-                        Console.WriteLine("{0} {1}", e.Id, e.Participants.Count);
-                    });
-
-                var presence = genesys.Streams.Domain.OfType<PresenceEventUserPresence>()
-                    .Subscribe(p =>
-                    {
-                        Console.WriteLine("Presence {0}", p?.PresenceDefinition?.SystemPresence);
-                    });
-
-                genesys.Streams.Domain.Subscribe(obj =>
-                {
-                    Console.WriteLine(obj.ToString());
-                });
-                genesys.Streams.Pong.Subscribe(_ =>
-                {
-                    Console.WriteLine("Pong");
-                });
-                genesys.Streams.Heartbeats.Subscribe(_ =>
-                {
-                    Console.WriteLine("Heart beat");
-                });
+                genesys.Streams.Domain.OfType<QueueConversationChatEventTopicChatConversation>()
+                    .Subscribe(e => Console.WriteLine("{0} {1}", e.Id, e.Participants.Count));
+                genesys.Streams.Domain.OfType<PresenceEventUserPresence>()
+                    .Subscribe(p => Console.WriteLine("Presence {0}", p?.PresenceDefinition?.SystemPresence));
+                genesys.Streams.Domain.Subscribe(obj => Console.WriteLine(obj.ToString()));
+                genesys.Streams.Pong.Subscribe(_ => Console.WriteLine("Pong"));
+                genesys.Streams.Heartbeats.Subscribe(_ => Console.WriteLine("Heart beat"));
                 genesys.Streams.SocketClosing.Subscribe(_ => Console.WriteLine("Socket closing"));
                 genesys.Ping();
+
+                Console.ReadLine();
+                Console.WriteLine("End");
             }
-
-            Console.ReadLine();
-
-            Console.WriteLine("End");
         }
     }
 }

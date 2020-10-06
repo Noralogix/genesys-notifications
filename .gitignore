@@ -9,3 +9,4 @@
 /sample/ConsoleApp/obj
 /sample/ConsoleApp/appsettings.dev.json
 /src/Genesys.Client.Notifications/bin
+/sample/ConsoleApp/bin/Release/netcoreapp3.1

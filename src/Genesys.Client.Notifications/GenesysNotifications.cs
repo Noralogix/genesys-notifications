@@ -2,7 +2,6 @@
 using Genesys.Client.Notifications.Responses;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -12,35 +11,24 @@ namespace Genesys.Client.Notifications
 {
     public class GenesysNotifications : IDisposable
     {
-        private readonly GenesysHttpClient _http;
         private readonly ILogger _logger;
 
-        private GenesysTopicSubscriptions _subscriptions;
         private GenesysWebsocketClient _websocket;
-        private GenesysAuthTokenInfo _token;
 
         private IDisposable _messageReceivedSubscription;
-
-        public GenesysNotifications(GenesysConfig config, ILogger logger)
+        private readonly IGenesysTopicSubscriptions _subscriptions;
+        public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger)
         {
-            _http = new GenesysHttpClient(config);
+            _subscriptions = subscriptions;
+            _websocket = new GenesysWebsocketClient(_subscriptions);
+            _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
             _logger = logger;
         }
 
-        public async Task StartAsync(Dictionary<string, Type> topicSubscriptions, int expiresHours = 24)
+        public async Task StartAsync()
         {
-            _token = await _http.GetTokenAsync();
-            var channel = await _http.CreateChannelAsync(_token);            
-            _subscriptions = new GenesysTopicSubscriptions(channel, topicSubscriptions, expiresHours);
-            _websocket = new GenesysWebsocketClient(_subscriptions);
-            
-            _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
-
-            await _websocket.Start();            
-            await _http.CreateSubscriptionsAsync(_token, channel, _subscriptions.Topics);
-
+            await _websocket.Start();
             OnStart();
-
             _logger.LogDebug("Genesys notifications {ChannelId}", _subscriptions.ChannelId);
 
             var restartNotifications = Observable.Range(1, 1)
@@ -51,9 +39,7 @@ namespace Genesys.Client.Notifications
                     {
                         if (_subscriptions.IsExpired)
                         {
-                            _token = await _http.GetTokenAsync();
-                            await _http.UpdateSubscriptionsAsync(_token, _subscriptions.Channel, _subscriptions.Topics);
-                            _subscriptions.UpdateExpires();
+                            await _subscriptions.UpdateExpiresAsync();
                             _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
                             OnStart();
                         }
@@ -126,19 +112,10 @@ namespace Genesys.Client.Notifications
 
         public void Dispose()
         {
-            _http.Dispose();
             _messageReceivedSubscription.Dispose();
             _websocket.Dispose();
             Streams.Dispose();
         }
-
-        private async Task<Channel> GetOrCreateChannelAsync(GenesysAuthTokenInfo authToken)
-            => await GetLastChanngelAsync(authToken, GetChanngelQuery.OAuthClient)
-                ?? await _http.CreateChannelAsync(authToken);
-
-        private async Task<Channel> GetLastChanngelAsync(GenesysAuthTokenInfo authToken, GetChanngelQuery query)
-            => (await _http.GetChannelsAsync(authToken, query))
-            .Where(ch => ch.Expires.HasValue).OrderByDescending(ch => ch.Expires).FirstOrDefault();
 
         private void OnStart() => Streams.StartSubject.OnNext(StartResponse.Create(_subscriptions));
     }

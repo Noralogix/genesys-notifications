@@ -12,6 +12,10 @@
     <Description>Lightweight client for Genesys Notifications websocket API</Description>
     <PackageIcon>noralogix.png</PackageIcon>
     <PackageProjectUrl>https://github.com/Noralogix/genesys-notifications</PackageProjectUrl>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

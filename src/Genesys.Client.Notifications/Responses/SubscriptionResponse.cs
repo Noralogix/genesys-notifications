@@ -7,7 +7,7 @@ namespace Genesys.Client.Notifications.Responses
 {
     internal static class SubscriptionResponse
     {
-        internal static bool TryHandle(GenesysMessage message, ISubject<object> subject, GenesysTopicSubscriptions topics)
+        internal static bool TryHandle(GenesysMessage message, ISubject<object> subject, IGenesysTopicSubscriptions topics)
         {
             var topicName = message.TopicName();
             if (topics.Items.ContainsKey(topicName))

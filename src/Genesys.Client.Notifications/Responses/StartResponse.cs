@@ -11,12 +11,12 @@ namespace Genesys.Client.Notifications.Responses
         public string ChannelId { get; set; }
         public string[] Topics { get; set; }
 
-        internal static StartResponse Create(GenesysTopicSubscriptions subscriptions)
+        internal static StartResponse Create(IGenesysTopicSubscriptions subscriptions)
             => new StartResponse
             {
                 Expires = subscriptions.Expires,
-                ChannelId = subscriptions.Channel.Id,
-                Topics = subscriptions.Topics.ToArray()
+                ChannelId = subscriptions.ChannelId,
+                Topics = subscriptions.Items.Keys.ToArray()
             };
     }
 }

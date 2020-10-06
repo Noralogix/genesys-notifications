@@ -22,43 +22,40 @@ namespace ConsoleApp
 
         static async Task Main(string[] args)
         {
-            Console.WriteLine("Genesys Client Notifications");
-
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile(appConfigName, optional: false, reloadOnChange: true);
             var configurations = builder.Build();
             var genesysConfig = configurations.Get<GenesysConfig>();
             var pcIds = configurations.Get<PurecloudDataIds>();
-
-            var loggerFactory = LoggerFactory.Create(builder =>
-            {
-                builder
-                    .AddConfiguration(configurations.GetSection("Logging"))
-                    .AddConsole();
-            });
+            var loggerFactory = LoggerFactory.Create(builder => builder.AddConfiguration(configurations.GetSection("Logging")).AddConsole());
 
             var logger = loggerFactory.CreateLogger("Genesys");
 
-            var topics = pcIds.Queues.Select(id => new { name = $"v2.routing.queues.{id}.conversations.emails", type = typeof(QueueConversationChatEventTopicChatConversation) }).ToList();
-            topics.AddRange(pcIds.Users.Select(id => new { name = $"v2.users.{id}.presence", type = typeof(PresenceEventUserPresence) }));
-
-            using (var genesys = new GenesysNotifications(genesysConfig, logger))
+            using (var topics = new GenesysTopics(genesysConfig, logger))
             {
-                await genesys.StartAsync(topics.ToDictionary(t => t.name, t => t.type));
-
-                genesys.Streams.Domain.OfType<QueueConversationChatEventTopicChatConversation>()
-                    .Subscribe(e => Console.WriteLine("{0} {1}", e.Id, e.Participants.Count));
-                genesys.Streams.Domain.OfType<PresenceEventUserPresence>()
-                    .Subscribe(p => Console.WriteLine("Presence {0}", p?.PresenceDefinition?.SystemPresence));
-                genesys.Streams.Domain.Subscribe(obj => Console.WriteLine(obj.ToString()));
-                genesys.Streams.Pong.Subscribe(_ => Console.WriteLine("Pong"));
-                genesys.Streams.Heartbeats.Subscribe(_ => Console.WriteLine("Heart beat"));
-                genesys.Streams.SocketClosing.Subscribe(_ => Console.WriteLine("Socket closing"));
-                genesys.Ping();
-
-                Console.ReadLine();
-                Console.WriteLine("End");
+                using (var notifications = await topics
+                    .Add<QueueConversationChatEventTopicChatConversation>("v2.routing.queues.{id}.conversations.emails", pcIds.Queues)
+                    .Add<PresenceEventUserPresence>("v2.users.{id}.presence", pcIds.Users)
+                    .CreateAsync())
+                {
+                    notifications.Streams.Domain
+                        .OfType<QueueConversationChatEventTopicChatConversation>()
+                        .Subscribe(e => Console.WriteLine("{0} {1}", e.Id, e.Participants.Count));
+                    notifications.Streams.Domain
+                        .OfType<PresenceEventUserPresence>()
+                        .Subscribe(p => Console.WriteLine("Presence {0}", p?.PresenceDefinition?.SystemPresence));
+                    notifications.Streams.Domain
+                        .Subscribe(obj => Console.WriteLine(obj.ToString()));
+                    notifications.Streams.Pong
+                        .Subscribe(_ => Console.WriteLine("Pong"));
+                    notifications.Streams.Heartbeats
+                        .Subscribe(_ => Console.WriteLine("Heart beat"));
+                    notifications.Streams.SocketClosing
+                        .Subscribe(_ => Console.WriteLine("Socket closing"));
+                    notifications.Ping();
+                    Console.ReadLine();
+                }
             }
         }
     }

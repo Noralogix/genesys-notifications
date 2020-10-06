@@ -19,8 +19,9 @@ namespace Genesys.Client.Notifications
         {
             if (channel == null) throw new ArgumentNullException(nameof(channel));
             if (topicSubscriptions == null) throw new ArgumentNullException(nameof(topicSubscriptions));
-            if (topicSubscriptions.Count == 0) throw new ArgumentException("Empty topic subscriptions");
-            if (expiresHours <= 0) throw new ArgumentException("expires hours should be more than 0");
+            if (topicSubscriptions.Count == 0) throw new ArgumentException("Empty topic subscriptions.");
+            if (topicSubscriptions.Count > topicsLimit) throw new ArgumentException("Topics limit exceeded.");
+            if (expiresHours <= 0) throw new ArgumentException("Expires hours should be more than 0.");
 
             _expiresHours = expiresHours;
             Channel = channel;

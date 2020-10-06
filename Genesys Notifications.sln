@@ -5,6 +5,10 @@ VisualStudioVersion = 16.0.30309.148
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Genesys.Client.Notifications", "src\Genesys.Client.Notifications\Genesys.Client.Notifications.csproj", "{3FE4FDD0-DD25-4D35-A7F9-FFF12C6105E4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp", "sample\ConsoleApp\ConsoleApp.csproj", "{52131063-2068-41D4-9D00-EF921B2E068F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{CA3FE844-CF80-48DF-8925-99760C7BD65D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,9 +19,16 @@ Global
 		{3FE4FDD0-DD25-4D35-A7F9-FFF12C6105E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3FE4FDD0-DD25-4D35-A7F9-FFF12C6105E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3FE4FDD0-DD25-4D35-A7F9-FFF12C6105E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52131063-2068-41D4-9D00-EF921B2E068F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52131063-2068-41D4-9D00-EF921B2E068F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52131063-2068-41D4-9D00-EF921B2E068F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52131063-2068-41D4-9D00-EF921B2E068F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{52131063-2068-41D4-9D00-EF921B2E068F} = {CA3FE844-CF80-48DF-8925-99760C7BD65D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {34C1D079-0110-4F99-BD66-E04F462B8CB1}

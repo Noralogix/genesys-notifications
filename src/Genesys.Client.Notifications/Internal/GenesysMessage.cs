@@ -17,9 +17,8 @@ namespace Genesys.Client.Notifications.Responses
             .GetPropertyOrNull("message")?
             .GetString();
 
-        public string EventBody() => _root
-            .GetPropertyOrNull("eventBody")?
-            .GetString();
+        public JsonElement? EventBody() => _root
+            .GetPropertyOrNull("eventBody");
 
         public GenesysMessage(JsonElement root, string raw)
         {

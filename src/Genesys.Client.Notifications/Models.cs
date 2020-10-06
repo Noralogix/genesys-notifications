@@ -28,6 +28,17 @@ namespace Genesys.Client.Notifications
         public ChannelMetadataNotification() { }
         [JsonPropertyName("message")] public string Message { get; set; }
     }
+
+    public partial class ChannelsList
+    {
+        public ChannelsList()
+        {
+            Items = new Channel[] { };
+        }
+        [JsonPropertyName("entities")] public Channel[] Items { get; set; }
+    }
+
+
     public partial class Channel
     {
         [JsonPropertyName("connectUri")] public string ConnectUri { get; set; }
@@ -49,6 +60,5 @@ namespace Genesys.Client.Notifications
         [JsonPropertyName("token_type")] public string TokenType { get; set; }
         [JsonPropertyName("expires_in")] public int? ExpiresIn { get; set; }
         [JsonPropertyName("error")] public string Error { get; set; }
-        [JsonIgnore] public string Environment { get; set; }
     }
 }

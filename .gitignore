@@ -5,3 +5,6 @@
 /.vs
 /src/Genesys.Client.Notifications/bin/Debug/netstandard2.0
 /src/Genesys.Client.Notifications/obj
+/sample/ConsoleApp/bin/Debug/netcoreapp3.1
+/sample/ConsoleApp/obj
+/sample/ConsoleApp/appsettings.dev.json

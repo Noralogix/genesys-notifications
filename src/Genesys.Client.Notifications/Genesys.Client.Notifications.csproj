@@ -11,6 +11,7 @@
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Lightweight client for Genesys Notifications websocket API</Description>
     <PackageIcon>noralogix.png</PackageIcon>
+    <PackageProjectUrl>https://github.com/Noralogix/genesys-notifications</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>

@@ -10,3 +10,7 @@
 /sample/ConsoleApp/appsettings.dev.json
 /src/Genesys.Client.Notifications/bin
 /sample/ConsoleApp/bin/Release/netcoreapp3.1
+/sample/ConsoleAppDotNet5/obj
+/sample/ConsoleAppDotNet5/bin
+/sample/ConsoleAppDotNet5/.vs/ConsoleAppNet5
+/sample/ConsoleAppDotNet5/appsettings.dev.json

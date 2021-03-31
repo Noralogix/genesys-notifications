@@ -12,6 +12,10 @@ namespace Genesys.Client.Notifications.Responses
             .GetPropertyOrNull("topicName")?
             .GetString();
 
+        public string Version() => _root
+            .GetPropertyOrNull("version")?
+            .GetString();
+
         public string Message() => _root
             .GetPropertyOrNull("eventBody")?
             .GetPropertyOrNull("message")?
@@ -19,6 +23,8 @@ namespace Genesys.Client.Notifications.Responses
 
         public JsonElement? EventBody() => _root
             .GetPropertyOrNull("eventBody");
+
+        public string Raw => _raw;
 
         public GenesysMessage(JsonElement root, string raw)
         {

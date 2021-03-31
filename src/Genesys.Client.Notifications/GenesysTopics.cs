@@ -20,7 +20,7 @@ namespace Genesys.Client.Notifications
 
     public class GenesysTopics : IGenesysTopicSubscriptions, IDisposable
     {
-        private const int limit = 1000;        
+        private const int limit = 1000;
         public Dictionary<string, Type> Items { get; } = new Dictionary<string, Type>();
         public string ChannelId => Channel?.Id;
         public string ChannelURI => Channel?.ConnectUri;
@@ -36,9 +36,17 @@ namespace Genesys.Client.Notifications
 
         public GenesysTopics(GenesysConfig config, ILogger logger)
         {
-            _config = config;
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config);
-            _logger = logger;
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+        }
+
+        public GenesysTopics(GenesysConfig config, ILogger logger, System.Net.Http.HttpClient httpClient)
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _http = new GenesysHttpClient(config, httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
             Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
         }
 

@@ -12,10 +12,13 @@
     <Description>Lightweight client for Genesys Notifications websocket API</Description>
     <PackageIcon>noralogix.png</PackageIcon>
     <PackageProjectUrl>https://github.com/Noralogix/genesys-notifications</PackageProjectUrl>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <FileVersion>1.0.2.0</FileVersion>
     <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
+    <PackageReleaseNotes>1. Ctor for GenesysTopics, to set httpClient if required.
+2. NotificationData for topics.
+3. Implemented by default CamelCase json serialization both classes and enums.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

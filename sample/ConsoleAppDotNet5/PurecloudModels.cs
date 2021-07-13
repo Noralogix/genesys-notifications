@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace ConsoleAppNet5
 {
+    public record EvaluationQualityV2TopicEvaluationV2();
     public record PresenceEventOrganizationPresence(string Id, string SystemPresence);
     public record PresenceEventUserPresence(PresenceEventOrganizationPresence PresenceDefinition, bool? Primary, string Message, DateTime? ModifiedDate);
 

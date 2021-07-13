@@ -10,7 +10,7 @@ namespace ConsoleAppNet5
 {
     class Program
     {
-        const string appConfigName = "appsettings.dev.json";
+        const string appConfigName = "appsettings.devhb.json";
         static async Task Main(string[] args)
         {
 
@@ -24,43 +24,52 @@ namespace ConsoleAppNet5
 
             var logger = loggerFactory.CreateLogger("Genesys");
 
-            using (var topics = new GenesysTopics(genesysConfig, logger))
+            try
             {
-                using (var notifications = await topics
-                    .Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations.emails", pcIds.Queues)
-                    .Add<NotificationData<PresenceEventUserPresence>>("v2.users.{id}.presence", pcIds.Users)
-                    .CreateAsync())
+                using (var topics = new GenesysTopics(genesysConfig, logger))
                 {
-                    notifications.Streams.Domain
-                        .OfType<QueueConversationEmailEventTopicEmailConversation>()
-                        .Subscribe(e =>
-                        {
-                            Console.WriteLine("[{0}] {1}", DateTime.Now, e.Id);
-                            foreach (var item in e.Participants)
+                    using (var notifications = await topics
+                        //.Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations.emails", pcIds.Queues)
+                        .Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations", pcIds.Queues)
+                        //.Add<EvaluationQualityV2TopicEvaluationV2>("v2.quality.evaluations")
+                        //.Add<NotificationData<PresenceEventUserPresence>>("v2.users.{id}.presence", pcIds.Users)
+                        .CreateAsync())
+                    {
+                        notifications.Streams.Domain
+                            .OfType<QueueConversationEmailEventTopicEmailConversation>()
+                            .Subscribe(e =>
                             {
-                                Console.WriteLine(item);
-                            }
-                        });
+                                Console.WriteLine("[{0}] {1}", DateTime.Now, e.Id);
+                                foreach (var item in e.Participants)
+                                {
+                                    Console.WriteLine(item);
+                                }
+                            });
 
-                    notifications.Streams.Domain
-                        .OfType<NotificationData<PresenceEventUserPresence>>()
-                        .Where(p => p.TopicName.Contains("b16b0516") && p.EventBody.PresenceDefinition?.SystemPresence == "AVAILABLE")
-                        .Subscribe(p => Console.WriteLine("[{0}] Taras-{1} AVAILABLE with filtering.", DateTime.Now, p.UserId()));
+                        notifications.Streams.Domain
+                            .OfType<NotificationData<PresenceEventUserPresence>>()
+                            .Where(p => p.TopicName.Contains("b16b0516") && p.EventBody.PresenceDefinition?.SystemPresence == "AVAILABLE")
+                            .Subscribe(p => Console.WriteLine("[{0}] Taras-{1} AVAILABLE with filtering.", DateTime.Now, p.UserId()));
 
-                    notifications.Streams.Domain
-                        .OfType<NotificationData<PresenceEventUserPresence>>()
-                        .Select(p => new PurecloudUserPresence(p.UserId(), p.EventBody))
-                        .Subscribe(up => Console.WriteLine("[{0}] User-{1} {2}", DateTime.Now, up.Id, up.Presence));
+                        notifications.Streams.Domain
+                            .OfType<NotificationData<PresenceEventUserPresence>>()
+                            .Select(p => new PurecloudUserPresence(p.UserId(), p.EventBody))
+                            .Subscribe(up => Console.WriteLine("[{0}] User-{1} {2}", DateTime.Now, up.Id, up.Presence));
 
-                    notifications.Streams.Pong
-                        .Subscribe(_ => Console.WriteLine("Pong"));
-                    notifications.Streams.Heartbeats
-                        .Subscribe(_ => Console.WriteLine("Heart beat"));
-                    notifications.Streams.SocketClosing
-                        .Subscribe(_ => Console.WriteLine("Socket closing"));
-                    notifications.Ping();
-                    Console.ReadLine();
+                        notifications.Streams.Pong
+                            .Subscribe(_ => Console.WriteLine("Pong"));
+                        notifications.Streams.Heartbeats
+                            .Subscribe(_ => Console.WriteLine("Heart beat"));
+                        notifications.Streams.SocketClosing
+                            .Subscribe(_ => Console.WriteLine("Socket closing"));
+                        notifications.Ping();
+                        Console.ReadLine();
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
             }
         }
     }

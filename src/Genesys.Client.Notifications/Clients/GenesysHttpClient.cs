@@ -152,15 +152,17 @@ namespace Genesys.Client.Notifications.Clients
                 int statusCode = (int)response.StatusCode;
                 if (statusCode >= 400)
                 {
-                    var responseContent = ex.Message;
+                    var exMessage = ex.Message;
+                    string responseContent = null;
                     try
                     {
                         responseContent = await response.Content.ReadAsStringAsync();
+                        exMessage = responseContent;
                     }
                     catch
                     {
                     }
-                    throw new GenesysException(statusCode, $"Error calling '{name}': " + responseContent, request.Headers.ToDictionary(rh => rh.Key, rh => rh.Value?.FirstOrDefault()));
+                    throw new GenesysException(statusCode, responseContent, $"Error calling '{name}': {exMessage}", request.Headers.ToDictionary(rh => rh.Key, rh => rh.Value?.FirstOrDefault()));
                 }
                 else
                     throw new GenesysException(statusCode, $"Error calling '{name}': " + ex.Message);

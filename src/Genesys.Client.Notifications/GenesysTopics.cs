@@ -11,7 +11,6 @@ namespace Genesys.Client.Notifications
     {
         string ChannelURI { get; }
         string ChannelId { get; }
-        int ExpiresHours { get; }
         Task UpdateExpiresAsync();
         DateTime Expires { get; }
         bool IsExpired { get; }
@@ -26,7 +25,6 @@ namespace Genesys.Client.Notifications
         public string ChannelURI => Channel?.ConnectUri;
         public Channel Channel { get; private set; }
         public DateTime Expires { get; private set; }
-        public int ExpiresHours => _config.ChannelExpiresHours;
 
         private GenesysNotifications _notifications;
 
@@ -113,7 +111,7 @@ namespace Genesys.Client.Notifications
             await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
         }
 
-        public async Task<GenesysNotifications> CreateAsync()
+        public virtual async Task<GenesysNotifications> CreateAsync()
         {
             Channel = await _http.CreateChannelAsync();
 
@@ -125,15 +123,44 @@ namespace Genesys.Client.Notifications
 
         public bool IsExpired => Expires <= DateTime.UtcNow;
 
-        public async Task UpdateExpiresAsync()
+        public virtual async Task UpdateExpiresAsync()
         {
-            Expires = DateTime.UtcNow.AddHours(_config.ChannelExpiresHours).AddMinutes(-1);
-            await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
+            try
+            {
+                Expires = DateTime.UtcNow.AddHours(_config.ChannelExpiresHours).AddMinutes(-1);
+                await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
+            }
+            catch (GenesysException gex)
+            {
+                if (gex.ErrorCode == 400)
+                {
+                    var error = System.Text.Json.JsonSerializer.Deserialize<ErrorMessage>(gex.ErrorContent);
+                    _logger.LogWarning("Unable to update channel subscriptions {Message} {Status} {Code} {ContextId}", error.Message, error.Status, error.Code, error.ContextId);
+                    if (error.IsNotificationChannelIdError())
+                    {
+                        Channel = await _http.CreateChannelAsync();
+                        await _http.CreateSubscriptionsAsync(Channel, Items.Keys);
+                    }
+                    else
+                        throw;
+                }
+                else
+                    throw;
+            }
+            catch
+            {
+                throw;
+            }
         }
 
         public void Dispose()
         {
             _http.Dispose();
         }
+    }
+
+    public class UpdateExpiresResult
+    {
+        public bool IsNewChannel { get; set; }
     }
 }

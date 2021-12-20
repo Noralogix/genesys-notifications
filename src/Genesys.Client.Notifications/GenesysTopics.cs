@@ -11,7 +11,7 @@ namespace Genesys.Client.Notifications
     {
         string ChannelURI { get; }
         string ChannelId { get; }
-        Task UpdateExpiresAsync();
+        Task<UpdateExpiresResult> UpdateExpiresAsync();
         DateTime Expires { get; }
         bool IsExpired { get; }
         Dictionary<string, Type> Items { get; }
@@ -123,23 +123,32 @@ namespace Genesys.Client.Notifications
 
         public bool IsExpired => Expires <= DateTime.UtcNow;
 
-        public virtual async Task UpdateExpiresAsync()
+        public virtual async Task<UpdateExpiresResult> UpdateExpiresAsync()
         {
             try
             {
                 Expires = DateTime.UtcNow.AddHours(_config.ChannelExpiresHours).AddMinutes(-1);
                 await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
+                return new UpdateExpiresResult
+                {
+                    IsNewChannel = false
+                };
             }
             catch (GenesysException gex)
             {
                 if (gex.ErrorCode == 400)
                 {
-                    var error = System.Text.Json.JsonSerializer.Deserialize<ErrorMessage>(gex.ErrorContent);
-                    _logger.LogWarning("Unable to update channel subscriptions {Message} {Status} {Code} {ContextId}", error.Message, error.Status, error.Code, error.ContextId);
+                    var error = System.Text.Json.JsonSerializer.Deserialize<ErrorMessage>(gex.ErrorContent);                    
                     if (error.IsNotificationChannelIdError())
                     {
+                        _logger.LogWarning("Unable to update channel subscriptions {Message} {Status} {Code} {ContextId}", error.Message, error.Status, error.Code, error.ContextId);
                         Channel = await _http.CreateChannelAsync();
                         await _http.CreateSubscriptionsAsync(Channel, Items.Keys);
+                        return new UpdateExpiresResult
+                        {
+                            IsNewChannel = true,
+                            Channel = Channel
+                        };
                     }
                     else
                         throw;
@@ -162,5 +171,6 @@ namespace Genesys.Client.Notifications
     public class UpdateExpiresResult
     {
         public bool IsNewChannel { get; set; }
+        public Channel Channel { get; set; }
     }
 }

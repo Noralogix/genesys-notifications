@@ -39,7 +39,8 @@ namespace Genesys.Client.Notifications
                     {
                         if (_subscriptions.IsExpired)
                         {
-                            await _subscriptions.UpdateExpiresAsync();
+                            var result = await _subscriptions.UpdateExpiresAsync();
+                            if (result.IsNewChannel) _websocket.Url = new Uri(result.Channel.ConnectUri);
                             _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
                             OnStart();
                         }
@@ -54,10 +55,10 @@ namespace Genesys.Client.Notifications
                 {
                 });
             Streams.SocketClosing.Subscribe(async _ =>
-            {                
+            {
                 await _websocket.Reconnect();
                 _logger.LogDebug("WebSocket closed and reconnected {ChannelId}", _subscriptions.ChannelId);
-            });            
+            });
         }
 
         /// <summary>

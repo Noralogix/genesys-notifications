@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Websocket.Client;
+using Websocket.Client.Models;
 
 namespace Genesys.Client.Notifications
 {
@@ -15,14 +16,32 @@ namespace Genesys.Client.Notifications
 
         private GenesysWebsocketClient _websocket;
 
-        private IDisposable _messageReceivedSubscription;
+        private readonly IDisposable _messageReceivedSubscription;
+        private readonly IDisposable _disconnectionHappenedSubscription;
+        private readonly IDisposable _reconnectionHappenedSubscription;
+
         private readonly IGenesysTopicSubscriptions _subscriptions;
         public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger)
         {
             _subscriptions = subscriptions;
             _websocket = new GenesysWebsocketClient(_subscriptions);
+            _websocket.Name = "GenesysCloudWS";
+            _websocket.ReconnectTimeout = TimeSpan.FromSeconds(30);
+            _websocket.ErrorReconnectTimeout = TimeSpan.FromSeconds(30);
+
+            _disconnectionHappenedSubscription = _websocket.DisconnectionHappened.Subscribe(OnDisconnectionHappened);
+            _reconnectionHappenedSubscription = _websocket.ReconnectionHappened.Subscribe(OnReconnectionHappened);
             _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
             _logger = logger;
+        }
+
+        private void OnReconnectionHappened(ReconnectionInfo info)
+        {
+            _logger.LogInformation("Reconnection happened {Type}", info.Type);
+        }
+        private void OnDisconnectionHappened(DisconnectionInfo info)
+        {
+            _logger.LogError(info.Exception, "Disconnection happened {Type} {CloseStatus} {CloseStatusDescription}", info.Type, info.CloseStatus, info.CloseStatusDescription);
         }
 
         public async Task StartAsync()
@@ -39,6 +58,7 @@ namespace Genesys.Client.Notifications
                     {
                         if (_subscriptions.IsExpired)
                         {
+                            _logger.LogDebug("WebSocket expired {ChannelId}", _subscriptions.ChannelId);
                             await _subscriptions.UpdateExpiresAsync();
                             _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
                             OnStart();
@@ -46,7 +66,7 @@ namespace Genesys.Client.Notifications
                     }
                     catch (Exception ex)
                     {
-                        _logger.Log(LogLevel.Error, ex, "Can't restart websocket {ChannelId}", _subscriptions.ChannelId);
+                        _logger.LogError(ex, "Can't restart websocket {ChannelId}", _subscriptions.ChannelId);
                     }
                 }))
                 .Concat()
@@ -54,10 +74,10 @@ namespace Genesys.Client.Notifications
                 {
                 });
             Streams.SocketClosing.Subscribe(async _ =>
-            {                
-                await _websocket.Reconnect();
-                _logger.LogDebug("WebSocket closed and reconnected {ChannelId}", _subscriptions.ChannelId);
-            });            
+            {
+                _logger.LogDebug("Socket closing and start reconnect {ChannelId}", _subscriptions.ChannelId);
+                await _websocket.Reconnect();                
+            });
         }
 
         /// <summary>
@@ -92,7 +112,7 @@ namespace Genesys.Client.Notifications
             }
             catch (Exception ex)
             {
-                _logger.Log(LogLevel.Error, ex, "Exception while receiving websocket message {ChannelId}", _subscriptions.ChannelId);
+                _logger.LogError(ex, "Exception while receiving websocket message {ChannelId}", _subscriptions.ChannelId);
             }
         }
 
@@ -113,6 +133,8 @@ namespace Genesys.Client.Notifications
         public void Dispose()
         {
             _messageReceivedSubscription.Dispose();
+            _disconnectionHappenedSubscription.Dispose();
+            _reconnectionHappenedSubscription.Dispose();
             _websocket.Dispose();
             Streams.Dispose();
         }

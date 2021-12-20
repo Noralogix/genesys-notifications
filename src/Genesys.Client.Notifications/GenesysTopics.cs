@@ -22,41 +22,64 @@ namespace Genesys.Client.Notifications
     {
         private const int limit = 1000;
         public Dictionary<string, Type> Items { get; } = new Dictionary<string, Type>();
+        public List<string> _topics = new List<string>();
+
         public string ChannelId => Channel?.Id;
         public string ChannelURI => Channel?.ConnectUri;
         public Channel Channel { get; private set; }
         public DateTime Expires { get; private set; }
-        public int ExpiresHours => _config.ChannelExpiresHours;
+        public int ExpiresHours { get; private set; }
 
         private GenesysNotifications _notifications;
 
-        private readonly IGenesysConfig _config;
         private readonly ILogger _logger;
         private readonly GenesysHttpClient _http;
 
         public GenesysTopics(GenesysConfig config, ILogger logger)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _http = new GenesysHttpClient(config);
             Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config)));            
+        }
+
+        public GenesysTopics(GenesysHttpClient genesysClient, ILogger logger, int channelExpiresHours = 23)
+        {
+            ExpiresHours = channelExpiresHours;
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _http = genesysClient;            
         }
 
         public GenesysTopics(GenesysConfig config, ILogger logger, System.Net.Http.HttpClient httpClient)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
+            ExpiresHours = config.ChannelExpiresHours;
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _http = new GenesysHttpClient(config, httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
-            Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
+            _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config))
+                , httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
+        }
+
+        public GenesysTopics(GenesysAuthTokenConfig config, ILogger logger)
+        {
+            ExpiresHours = config.ChannelExpiresHours;
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config)));
         }
 
         public GenesysTopics(GenesysAuthTokenConfig config, ILogger logger, System.Net.Http.HttpClient httpClient)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _http = new GenesysHttpClient(config, httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
-            Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
-        }        
+            _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config))
+                , httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
+            ExpiresHours = config.ChannelExpiresHours;
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+        }
         //public GenesysTopicSubscriptions(Channel channel, Dictionary<string, Type> topicSubscriptions, int expiresHours)
         //{
         //    if (channel == null) throw new ArgumentNullException(nameof(channel));
@@ -95,6 +118,31 @@ namespace Genesys.Client.Notifications
             return this;
         }
 
+        /// <summary>
+        /// Non typed subscribtion
+        /// </summary>
+        /// <param name="topic">Genesys Cloud Topic</param>
+        /// <param name="ids">Genesys Cloud id's</param>
+        /// <returns></returns>
+        public GenesysTopics Add(string topic, string[] ids = null)
+        {
+            if (_notifications != null) throw new Exception("Cant add topic. Already subscribed.");
+            if (ids == null) _topics.Add(topic);
+            else
+                foreach (var topicWithId in ids.Select(id => topic.Replace("{id}", id)))
+                {
+                    if (!_topics.Contains(topicWithId))
+                        _topics.Add(topicWithId);
+                }
+            return this;
+        }
+
+        public Task UpdateAsync(string topic, string[] ids = null)
+        {
+            if (_notifications == null) throw new Exception("Cant update topic. Channel have not created.");
+            return Task.CompletedTask;
+        }
+
         public async Task UpdateAsync<TTopic>(string topic, string[] ids = null)
         {
             if (_notifications == null) throw new Exception("Cant update topic. Channel have not created.");
@@ -109,7 +157,7 @@ namespace Genesys.Client.Notifications
                     if (!Items.ContainsKey(topicWithId))
                         Items.Add(topicWithId, typeof(TTopic));
                 }
-            }            
+            }
             await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
         }
 
@@ -127,7 +175,17 @@ namespace Genesys.Client.Notifications
 
         public async Task UpdateExpiresAsync()
         {
-            Expires = DateTime.UtcNow.AddHours(_config.ChannelExpiresHours).AddMinutes(-1);
+            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+            Channel channel = null;
+            try
+            {
+                channel = _http.GetChannelsAsync(new GetChanngelQuery { })
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
             await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
         }
 

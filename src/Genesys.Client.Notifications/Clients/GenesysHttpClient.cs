@@ -16,17 +16,18 @@ namespace Genesys.Client.Notifications.Clients
 
     public class GenesysHttpClient : IDisposable
     {
+        private readonly bool _isDisposableHttp = false;
         private readonly HttpClient _http;
-        private readonly IGenesysConfig _config;
-
+        public IGenesysConfig Config { get; private set; }
         public GenesysHttpClient(IGenesysConfig config) : this(config, new HttpClient())
         {
+            _isDisposableHttp = true;
         }
 
         public GenesysHttpClient(IGenesysConfig config, HttpClient http)
         {
             _http = http;
-            _config = config;
+            Config = config;
         }
 
         /// <summary>
@@ -40,7 +41,7 @@ namespace Genesys.Client.Notifications.Clients
             var authToken = await GetTokenAsync();
 
             var path = $"/api/v2/notifications/channels?includechannels={query}";
-            var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.{_config.Environment}" + path);
+            var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.{Config.Environment}" + path);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
             var response = await SendApiRequestAsync(request, "get channels"); ;
             try
@@ -59,7 +60,7 @@ namespace Genesys.Client.Notifications.Clients
         {
             var authToken = await GetTokenAsync();
             var path = "/api/v2/notifications/channels";
-            var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.{_config.Environment}" + path);
+            var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.{Config.Environment}" + path);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
             var response = await SendApiRequestAsync(request, "create channel");
             try
@@ -79,7 +80,7 @@ namespace Genesys.Client.Notifications.Clients
             var authToken = await GetTokenAsync();
 
             var path = $"/api/v2/notifications/channels/{channel.Id}/subscriptions";
-            var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.{_config.Environment}" + path);
+            var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.{Config.Environment}" + path);
             var data = string.Join(",", topics.Select(t => "{" + $"\"id\":\"{t}\"" + "}").ToArray()).TrimEnd(',');
             var body = $"[{data}]";
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
@@ -92,7 +93,7 @@ namespace Genesys.Client.Notifications.Clients
             var authToken = await GetTokenAsync();
 
             var path = $"/api/v2/notifications/channels/{channel.Id}/subscriptions";
-            var request = new HttpRequestMessage(HttpMethod.Put, $"https://api.{_config.Environment}" + path);
+            var request = new HttpRequestMessage(HttpMethod.Put, $"https://api.{Config.Environment}" + path);
             var data = string.Join(",", topics.Select(t => "{" + $"\"id\":\"{t}\"" + "}").ToArray()).TrimEnd(',');
             var body = $"[{data}]";
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
@@ -102,8 +103,8 @@ namespace Genesys.Client.Notifications.Clients
 
         public async Task<GenesysAuthTokenInfo> GetTokenAsync()
         {
-            if (_config is GenesysConfig) return await GetTokenClientCredentialsAsync((GenesysConfig)_config);
-            else if (_config is GenesysAuthTokenConfig) return (_config as GenesysAuthTokenConfig).Token;
+            if (Config is GenesysConfig) return await GetTokenClientCredentialsAsync((GenesysConfig)Config);
+            else if (Config is GenesysAuthTokenConfig) return (Config as GenesysAuthTokenConfig).Token;
             throw new NotImplementedException();
         }
 
@@ -175,7 +176,8 @@ namespace Genesys.Client.Notifications.Clients
 
         public void Dispose()
         {
-            _http.Dispose();
+            if (_isDisposableHttp)
+                _http.Dispose();
         }
     }
 }

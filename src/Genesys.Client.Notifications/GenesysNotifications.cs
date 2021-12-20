@@ -59,7 +59,8 @@ namespace Genesys.Client.Notifications
                         if (_subscriptions.IsExpired)
                         {
                             _logger.LogDebug("WebSocket expired {ChannelId}", _subscriptions.ChannelId);
-                            await _subscriptions.UpdateExpiresAsync();
+                            var result = await _subscriptions.UpdateExpiresAsync();
+                            if (result.IsNewChannel) _websocket.Url = new Uri(result.Channel.ConnectUri);                            
                             _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
                             OnStart();
                         }

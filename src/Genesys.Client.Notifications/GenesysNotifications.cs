@@ -54,20 +54,16 @@ namespace Genesys.Client.Notifications
                 .RepeatWhen(observable => observable.Delay(_subscriptions.Expires))
                 .Select(_ => Observable.FromAsync(async () =>
                 {
-                    try
+                    if (_subscriptions.IsExpired)
                     {
-                        if (_subscriptions.IsExpired)
+                        _logger.LogDebug("WebSocket expired {ChannelId}", _subscriptions.ChannelId);
+                        var result = await _subscriptions.UpdateExpiresAsync();
+                        if (result.IsNewChannel) _websocket.Url = new Uri(result.Channel.ConnectUri);
+                        if (result.IsUpdated)
                         {
-                            _logger.LogDebug("WebSocket expired {ChannelId}", _subscriptions.ChannelId);
-                            var result = await _subscriptions.UpdateExpiresAsync();
-                            if (result.IsNewChannel) _websocket.Url = new Uri(result.Channel.ConnectUri);                            
                             _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
                             OnStart();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Can't restart websocket {ChannelId}", _subscriptions.ChannelId);
+                        }    
                     }
                 }))
                 .Concat()

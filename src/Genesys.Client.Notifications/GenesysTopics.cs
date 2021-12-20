@@ -36,26 +36,20 @@ namespace Genesys.Client.Notifications
         public GenesysTopics(GenesysConfig config, ILogger logger)
         {
             Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
-            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
-
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config)));            
         }
 
         public GenesysTopics(GenesysHttpClient genesysClient, ILogger logger, int channelExpiresHours = 23)
         {
-            ExpiresHours = channelExpiresHours;
-            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
-
+            Expires = DateTime.UtcNow.AddHours(channelExpiresHours).AddMinutes(-1);
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = genesysClient;            
         }
 
         public GenesysTopics(GenesysConfig config, ILogger logger, System.Net.Http.HttpClient httpClient)
         {
-            ExpiresHours = config.ChannelExpiresHours;
-            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
-
+            Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config))
                 , httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
@@ -63,8 +57,7 @@ namespace Genesys.Client.Notifications
 
         public GenesysTopics(GenesysAuthTokenConfig config, ILogger logger)
         {
-            ExpiresHours = config.ChannelExpiresHours;
-            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+            Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config)));
@@ -75,8 +68,7 @@ namespace Genesys.Client.Notifications
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config))
                 , httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
-            ExpiresHours = config.ChannelExpiresHours;
-            Expires = DateTime.UtcNow.AddHours(ExpiresHours).AddMinutes(-1);
+            Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
         }
         //public GenesysTopicSubscriptions(Channel channel, Dictionary<string, Type> topicSubscriptions, int expiresHours)
         //{
@@ -175,7 +167,7 @@ namespace Genesys.Client.Notifications
         {
             try
             {
-                Expires = DateTime.UtcNow.AddHours(_config.ChannelExpiresHours).AddMinutes(-1);
+                Expires = DateTime.UtcNow.AddHours(_http.Config.ChannelExpiresHours).AddMinutes(-1);
                 await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
                 return new UpdateExpiresResult
                 {

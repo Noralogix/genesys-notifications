@@ -131,7 +131,8 @@ namespace Genesys.Client.Notifications
                 await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
                 return new UpdateExpiresResult
                 {
-                    IsNewChannel = false
+                    IsNewChannel = false,
+                    IsUpdated = true,
                 };
             }
             catch (GenesysException gex)
@@ -147,19 +148,22 @@ namespace Genesys.Client.Notifications
                         return new UpdateExpiresResult
                         {
                             IsNewChannel = true,
+                            IsUpdated = true,
                             Channel = Channel
                         };
                     }
-                    else
-                        throw;
                 }
-                else
-                    throw;
+                _logger.LogError(gex, "Can't update channel subscriptions {ChannelId}", Channel.Id);
             }
-            catch
+            catch (Exception ex)
             {
-                throw;
+                _logger.LogError(ex, "Can't update channel subscriptions {ChannelId}", Channel.Id);
             }
+            return new UpdateExpiresResult
+            {
+                IsNewChannel = false,
+                IsUpdated = false
+            };
         }
 
         public void Dispose()
@@ -170,6 +174,7 @@ namespace Genesys.Client.Notifications
 
     public class UpdateExpiresResult
     {
+        public bool IsUpdated { get; set; }
         public bool IsNewChannel { get; set; }
         public Channel Channel { get; set; }
     }

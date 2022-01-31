@@ -16,7 +16,7 @@ namespace Genesys.Client.Notifications.Responses
             {
                 Expires = subscriptions.Expires,
                 ChannelId = subscriptions.ChannelId,
-                Topics = subscriptions.Items.Keys.ToArray()
+                Topics = subscriptions.GetTopics()
             };
     }
 }

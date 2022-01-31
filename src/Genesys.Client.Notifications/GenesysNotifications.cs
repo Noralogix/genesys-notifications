@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Websocket.Client;
 using Websocket.Client.Models;
@@ -21,11 +22,11 @@ namespace Genesys.Client.Notifications
         private readonly IDisposable _reconnectionHappenedSubscription;
 
         private readonly IGenesysTopicSubscriptions _subscriptions;
-        public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger)
+        public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger, string name)
         {
             _subscriptions = subscriptions;
             _websocket = new GenesysWebsocketClient(_subscriptions);
-            _websocket.Name = "GenesysCloudWS";
+            _websocket.Name = name;
             _websocket.ReconnectTimeout = TimeSpan.FromSeconds(30);
             _websocket.ErrorReconnectTimeout = TimeSpan.FromSeconds(30);
 
@@ -37,11 +38,13 @@ namespace Genesys.Client.Notifications
 
         private void OnReconnectionHappened(ReconnectionInfo info)
         {
-            _logger.LogInformation("Reconnection happened {Type}", info.Type);
+            if (info.Type != ReconnectionType.NoMessageReceived)
+                _logger.LogInformation("Reconnection happened {Type}", info.Type);
         }
         private void OnDisconnectionHappened(DisconnectionInfo info)
         {
-            _logger.LogError(info.Exception, "Disconnection happened {Type} {CloseStatus} {CloseStatusDescription}", info.Type, info.CloseStatus, info.CloseStatusDescription);
+            if (info.Type != DisconnectionType.NoMessageReceived)
+                _logger.LogError(info.Exception, "Disconnection happened {Type} {CloseStatus} {CloseStatusDescription}", info.Type, info.CloseStatus, info.CloseStatusDescription);
         }
 
         public async Task StartAsync()
@@ -54,26 +57,80 @@ namespace Genesys.Client.Notifications
                 .RepeatWhen(observable => observable.Delay(_subscriptions.Expires))
                 .Select(_ => Observable.FromAsync(async () =>
                 {
-                    if (_subscriptions.IsExpired)
+                    try
                     {
-                        _logger.LogDebug("WebSocket expired {ChannelId}", _subscriptions.ChannelId);
-                        var result = await _subscriptions.UpdateExpiresAsync();
-                        if (result.IsNewChannel) _websocket.Url = new Uri(result.Channel.ConnectUri);
-                        if (result.IsUpdated)
+                        if (_subscriptions.IsExpired)
                         {
-                            _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
-                            OnStart();
-                        }    
+                            _logger.LogDebug("Expired {ChannelId}", _subscriptions.ChannelId);
+                            var result = await _subscriptions.UpdateExpiresAsync();
+                            if (result.IsNewChannel)
+                            {
+                                _websocket.Url = new Uri(result.Channel.ConnectUri);
+                                await _websocket.Reconnect();
+                                _logger.LogDebug("Created new {ChannelId}", _subscriptions.ChannelId);
+                            }
+                            if (result.IsUpdated)
+                            {
+                                _logger.LogDebug("Updated {ChannelId}", _subscriptions.ChannelId);
+                                OnStart();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Expires");
                     }
                 }))
                 .Concat()
                 .Subscribe(_ =>
                 {
                 });
+
+            long _lastHeartbeatsHit = -1;
+            var healthcheck = Observable.Range(1, 1)
+                .RepeatWhen(observable => observable.Delay(TimeSpan.FromMinutes(2)))
+                .Select(_ => Observable.FromAsync(async () =>
+                {
+                    try
+                    {
+                        var lastHeartbeatsHit = Interlocked.Read(ref _lastHeartbeatsHit);
+                        if (lastHeartbeatsHit == -1) return;
+                        var dtHeartbeats = new DateTime(lastHeartbeatsHit);
+                        if (dtHeartbeats.AddMinutes(2) < DateTime.UtcNow)
+                        {
+                            Interlocked.Exchange(ref _lastHeartbeatsHit, -1);
+
+                            _logger.LogDebug("Healthcheck Stopped {ChannelId}", _subscriptions.ChannelId);
+                            var result = await _subscriptions.UpdateExpiresAsync();
+                            if (result.IsNewChannel)
+                            {
+                                _websocket.Url = new Uri(result.Channel.ConnectUri);
+                                await _websocket.Reconnect();
+                                _logger.LogDebug("Healthcheck Craeted {ChannelId}", _subscriptions.ChannelId);
+                            }
+                            if (result.IsUpdated)
+                            {
+                                _logger.LogDebug("Healthcheck Updated {ChannelId}", _subscriptions.ChannelId);
+                                OnStart();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Healthcheck");
+                    }
+                }))
+                .Concat()
+                .Subscribe(_ =>
+                {
+                });
+
+            Streams.Heartbeats.Subscribe(_ => Interlocked.Exchange(ref _lastHeartbeatsHit, DateTime.UtcNow.Ticks));
+
             Streams.SocketClosing.Subscribe(async _ =>
             {
                 _logger.LogDebug("Socket closing and start reconnect {ChannelId}", _subscriptions.ChannelId);
-                await _websocket.Reconnect();                
+                await _websocket.Reconnect();
             });
         }
 

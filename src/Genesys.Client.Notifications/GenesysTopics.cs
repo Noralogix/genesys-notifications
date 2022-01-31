@@ -14,7 +14,9 @@ namespace Genesys.Client.Notifications
         Task<UpdateExpiresResult> UpdateExpiresAsync();
         DateTime Expires { get; }
         bool IsExpired { get; }
-        Dictionary<string, Type> Items { get; }
+        IGenesysConfig Config { get; }
+        Type GetTopicType(string topicName);
+        string[] GetTopics();
     }
 
     public class GenesysTopics : IGenesysTopicSubscriptions, IDisposable
@@ -27,6 +29,7 @@ namespace Genesys.Client.Notifications
         public string ChannelURI => Channel?.ConnectUri;
         public Channel Channel { get; private set; }
         public DateTime Expires { get; private set; }
+        public IGenesysConfig Config { get; private set; }
 
         private GenesysNotifications _notifications;
 
@@ -35,20 +38,24 @@ namespace Genesys.Client.Notifications
 
         public GenesysTopics(GenesysConfig config, ILogger logger)
         {
+            Config = Config;
             Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config)));            
+            _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config)));
         }
 
         public GenesysTopics(GenesysHttpClient genesysClient, ILogger logger, int channelExpiresHours = 23)
         {
+            Config = Config;
             Expires = DateTime.UtcNow.AddHours(channelExpiresHours).AddMinutes(-1);
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _http = genesysClient;            
+            _http = genesysClient;
         }
 
-        public GenesysTopics(GenesysConfig config, ILogger logger, System.Net.Http.HttpClient httpClient)
+        public GenesysTopics(GenesysConfig config, ILogger logger, System.Net.Http.HttpClient httpClient, int topicsCapacity = 100)
         {
+            Items = new Dictionary<string, Type>(topicsCapacity);
+            Config = Config;
             Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config))
@@ -57,6 +64,7 @@ namespace Genesys.Client.Notifications
 
         public GenesysTopics(GenesysAuthTokenConfig config, ILogger logger)
         {
+            Config = Config;
             Expires = DateTime.UtcNow.AddHours(config.ChannelExpiresHours).AddMinutes(-1);
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -65,6 +73,7 @@ namespace Genesys.Client.Notifications
 
         public GenesysTopics(GenesysAuthTokenConfig config, ILogger logger, System.Net.Http.HttpClient httpClient)
         {
+            Config = Config;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config ?? throw new ArgumentNullException(nameof(config))
                 , httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
@@ -151,12 +160,12 @@ namespace Genesys.Client.Notifications
             await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
         }
 
-        public virtual async Task<GenesysNotifications> CreateAsync()
+        public virtual async Task<GenesysNotifications> CreateAsync(string name = "GenesysCloudWS")
         {
             Channel = await _http.CreateChannelAsync();
 
             await _http.CreateSubscriptionsAsync(Channel, Items.Keys);
-            _notifications = new GenesysNotifications(this, _logger);
+            _notifications = new GenesysNotifications(this, _logger, name);
             await _notifications.StartAsync();
             return _notifications;
         }
@@ -166,9 +175,9 @@ namespace Genesys.Client.Notifications
         public virtual async Task<UpdateExpiresResult> UpdateExpiresAsync()
         {
             try
-            {
-                Expires = DateTime.UtcNow.AddHours(_http.Config.ChannelExpiresHours).AddMinutes(-1);
+            {                
                 await _http.UpdateSubscriptionsAsync(Channel, Items.Keys);
+                Expires = DateTime.UtcNow.AddHours(_http.Config.ChannelExpiresHours).AddMinutes(-1);
                 return new UpdateExpiresResult
                 {
                     IsNewChannel = false,
@@ -179,11 +188,12 @@ namespace Genesys.Client.Notifications
             {
                 if (gex.ErrorCode == 400)
                 {
-                    var error = System.Text.Json.JsonSerializer.Deserialize<ErrorMessage>(gex.ErrorContent);                    
+                    var error = System.Text.Json.JsonSerializer.Deserialize<ErrorMessage>(gex.ErrorContent);
                     if (error.IsNotificationChannelIdError())
                     {
                         _logger.LogWarning("Unable to update channel subscriptions {Message} {Status} {Code} {ContextId}", error.Message, error.Status, error.Code, error.ContextId);
                         Channel = await _http.CreateChannelAsync();
+                        Expires = Channel.Expires ??  DateTime.UtcNow.AddHours(_http.Config.ChannelExpiresHours).AddMinutes(-1);
                         await _http.CreateSubscriptionsAsync(Channel, Items.Keys);
                         return new UpdateExpiresResult
                         {
@@ -210,6 +220,9 @@ namespace Genesys.Client.Notifications
         {
             _http.Dispose();
         }
+
+        public Type GetTopicType(string topicName) => Items.ContainsKey(topicName) ? Items[topicName] : null;
+        public string[] GetTopics() => Items.Keys.ToArray();
     }
 
     public class UpdateExpiresResult

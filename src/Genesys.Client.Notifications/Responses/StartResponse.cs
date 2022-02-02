@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Genesys.Client.Notifications.Responses
 {
@@ -14,8 +11,8 @@ namespace Genesys.Client.Notifications.Responses
         internal static StartResponse Create(IGenesysTopicSubscriptions subscriptions)
             => new StartResponse
             {
-                Expires = subscriptions.Expires,
-                ChannelId = subscriptions.ChannelId,
+                Expires = subscriptions.Channel.Expires,
+                ChannelId = subscriptions.Channel.Id,
                 Topics = subscriptions.GetTopics()
             };
     }

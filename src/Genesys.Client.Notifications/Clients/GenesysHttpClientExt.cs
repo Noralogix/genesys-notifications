@@ -13,6 +13,6 @@ namespace Genesys.Client.Notifications.Clients
 
         public static async Task<Channel> GetLastChanngelAsync(this GenesysHttpClient _http, GetChanngelQuery query)
             => (await _http.GetChannelsAsync(query))
-            .Where(ch => ch.Expires.HasValue).OrderByDescending(ch => ch.Expires).FirstOrDefault();
+            .OrderByDescending(ch => ch.Expires).FirstOrDefault();
     }
 }

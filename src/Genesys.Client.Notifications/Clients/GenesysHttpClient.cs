@@ -19,6 +19,9 @@ namespace Genesys.Client.Notifications.Clients
         private readonly bool _isDisposableHttp = false;
         private readonly HttpClient _http;
         public IGenesysConfig Config { get; private set; }
+
+        private DateTime? _tokenExpires;
+        private GenesysAuthTokenInfo _token;
         public GenesysHttpClient(IGenesysConfig config) : this(config, new HttpClient())
         {
             _isDisposableHttp = true;
@@ -33,7 +36,6 @@ namespace Genesys.Client.Notifications.Clients
         /// <summary>
         /// The list of existing channels
         /// </summary>
-        /// <param name="authToken"></param>
         /// <param name="query"></param>
         /// <returns></returns>
         public async Task<Channel[]> GetChannelsAsync(GetChanngelQuery query)
@@ -56,6 +58,13 @@ namespace Genesys.Client.Notifications.Clients
             }
         }
 
+        /// <summary>
+        /// Create a new channel. There is a limit of 20 channels per user/app combination. 
+        /// Creating a 21st channel will remove the channel with oldest last used date. 
+        /// Channels without an active connection will be removed first.
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="GenesysException"></exception>
         public async Task<Channel> CreateChannelAsync()
         {
             var authToken = await GetTokenAsync();
@@ -75,7 +84,13 @@ namespace Genesys.Client.Notifications.Clients
             }
         }
 
-        public async Task CreateSubscriptionsAsync(Channel channel, IEnumerable<string> topics)
+        /// <summary>
+        /// Add a list of subscriptions to the existing list of subscriptions
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <param name="topics"></param>
+        /// <returns></returns>
+        public async Task AddSubscriptionsAsync(Channel channel, IEnumerable<string> topics)
         {
             var authToken = await GetTokenAsync();
 
@@ -88,7 +103,36 @@ namespace Genesys.Client.Notifications.Clients
             await SendApiRequestAsync(request, "create channel subscriptions");
         }
 
-        public async Task UpdateSubscriptionsAsync(Channel channel, IEnumerable<string> topics)
+        /// <summary>
+        /// Verify a channel still exists and is valid. Returns a 200 OK if channel exists, and a 404 Not Found if it doesn't
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        public async Task VerifyChannelExists(Channel channel)
+        {
+            var authToken = await GetTokenAsync();
+            var path = $"/api/v2/notifications/channels/{channel.Id}";
+            var request = new HttpRequestMessage(HttpMethod.Head, $"https://api.{Config.Environment}" + path);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
+            await SendApiRequestAsync(request, "Verify a channel still exists");
+        }
+
+        public async Task RemoveAllSubscriptionsAsync(Channel channel)
+        {
+            var authToken = await GetTokenAsync();
+            var path = $"/api/v2/notifications/channels/{channel.Id}/subscriptions";
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"https://api.{Config.Environment}" + path);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
+            await SendApiRequestAsync(request, "remove all channel subscriptions");
+        }
+
+        /// <summary>
+        /// Replace the current list of subscriptions with a new list 
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <param name="topics"></param>
+        /// <returns></returns>
+        public async Task ReplaceSubscriptionsAsync(Channel channel, IEnumerable<string> topics)
         {
             var authToken = await GetTokenAsync();
 
@@ -98,23 +142,27 @@ namespace Genesys.Client.Notifications.Clients
             var body = $"[{data}]";
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken.AccessToken);
             request.Content = new StringContent(body, Encoding.UTF8, "application/json");
-            await SendApiRequestAsync(request, "updated channel subscriptions");
+            await SendApiRequestAsync(request, "Updated channel subscriptions");
         }
 
         public async Task<GenesysAuthTokenInfo> GetTokenAsync()
         {
-            if (Config is GenesysConfig) return await GetTokenClientCredentialsAsync((GenesysConfig)Config);
-            else if (Config is GenesysAuthTokenConfig) return (Config as GenesysAuthTokenConfig).Token;
-            throw new NotImplementedException();
+            var dt = DateTime.UtcNow;
+            if (_token == null || _tokenExpires.HasValue && _tokenExpires <= dt)
+            {
+                _token = await GetTokenClientCredentialsAsync();
+                _tokenExpires = dt.AddSeconds(_token.ExpiresIn ?? 1000);
+            }
+            return _token;
         }
 
-        public async Task<GenesysAuthTokenInfo> GetTokenClientCredentialsAsync(GenesysConfig config)
+        public async Task<GenesysAuthTokenInfo> GetTokenClientCredentialsAsync()
         {
             var path = "/oauth/token";
 
             var basicAuth = Convert.ToBase64String(Encoding.GetEncoding("ISO-8859-1")
-                .GetBytes($"{config.ClientId}:{config.ClientSecret}"));
-            var request = new HttpRequestMessage(HttpMethod.Post, $"https://login.{config.Environment}" + path);
+                .GetBytes($"{Config.ClientId}:{Config.ClientSecret}"));
+            var request = new HttpRequestMessage(HttpMethod.Post, $"https://login.{Config.Environment}" + path);
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
             var content = new FormUrlEncodedContent(new[]
             {

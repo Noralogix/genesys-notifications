@@ -50,7 +50,7 @@ namespace Genesys.Client.Notifications
     {
         [JsonPropertyName("connectUri")] public string ConnectUri { get; set; }
         [JsonPropertyName("id")] public string Id { get; set; }
-        [JsonPropertyName("expires")] public DateTime? Expires { get; set; }
+        [JsonPropertyName("expires")] public DateTime Expires { get; set; }
     }
     public partial class ChannelTopic
     {

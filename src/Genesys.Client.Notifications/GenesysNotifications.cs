@@ -104,17 +104,16 @@ namespace Genesys.Client.Notifications
 
         public async Task UpdateSubscriptionsAsync()
         {
-            var result = await _subscriptions.UpdateExpiresAsync();
-            if (result.IsNewChannel)
+            try
             {
-                _websocket.Url = new Uri(result.Channel.ConnectUri);
+                var result = await _subscriptions.UpdateExpiresAsync();
+                _websocket.Url = new Uri(result.ConnectUri);
                 await _websocket.Reconnect();
-                _logger.LogDebug("Craeted new {ChannelId}", _subscriptions.Channel.Id);
-            }
-            _logger.LogDebug("{Updated} {ChannelId}", result.IsUpdated, _subscriptions.Channel.Id);
-            if (result.IsUpdated)
-            {
                 OnStart();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "Can't update subscriptions");
             }
         }
 

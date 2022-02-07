@@ -36,7 +36,7 @@ namespace Genesys.Client.Notifications
         }
 
         public GenesysTopics(GenesysHttpClient client, ILogger logger)
-        {            
+        {
             _http = client ?? throw new ArgumentNullException(nameof(client));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             Config = client.Config;
@@ -47,7 +47,7 @@ namespace Genesys.Client.Notifications
             Config = config ?? throw new ArgumentNullException(nameof(config));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _http = new GenesysHttpClient(config, httpClient ?? throw new ArgumentNullException(nameof(httpClient)));
-        }  
+        }
 
         /// <summary>
         /// Available topics https://developer.genesys.cloud/api/rest/v2/notifications/available_topics
@@ -119,48 +119,22 @@ namespace Genesys.Client.Notifications
             _notifications = new GenesysNotifications(this, _logger, name);
             await _notifications.StartAsync();
             return _notifications;
-        }        
+        }
 
         public virtual async Task<UpdateExpiresResult> UpdateExpiresAsync()
         {
-            try
-            {                
+            if ((await _http.ChannelExistsAsync(Channel)))
+            {
                 await _http.ReplaceSubscriptionsAsync(Channel, Items.Keys);
-                return new UpdateExpiresResult
-                {
-                    IsNewChannel = false,
-                    IsUpdated = true,
-                };
+                Channel.Expires = Channel.Expires.AddHours(24).AddMinutes(-1);
+                return new UpdateExpiresResult(Channel.ConnectUri);
             }
-            catch (GenesysException gex)
+            else
             {
-                if (gex.ErrorCode == 400)
-                {
-                    var error = System.Text.Json.JsonSerializer.Deserialize<ErrorMessage>(gex.ErrorContent);
-                    if (error.IsNotificationChannelIdError())
-                    {
-                        _logger.LogWarning("Unable to update channel subscriptions {Message} {Status} {Code} {ContextId}", error.Message, error.Status, error.Code, error.ContextId);
-                        Channel = await _http.CreateChannelAsync();
-                        await _http.AddSubscriptionsAsync(Channel, Items.Keys);
-                        return new UpdateExpiresResult
-                        {
-                            IsNewChannel = true,
-                            IsUpdated = true,
-                            Channel = Channel
-                        };
-                    }
-                }
-                _logger.LogError(gex, "Can't update channel subscriptions {ChannelId}", Channel.Id);
+                Channel = await _http.CreateChannelAsync();
+                await _http.AddSubscriptionsAsync(Channel, Items.Keys);
+                return new UpdateExpiresResult(Channel.ConnectUri);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Can't update channel subscriptions {ChannelId}", Channel.Id);
-            }
-            return new UpdateExpiresResult
-            {
-                IsNewChannel = false,
-                IsUpdated = false
-            };
         }
 
         public void Dispose()
@@ -174,8 +148,10 @@ namespace Genesys.Client.Notifications
 
     public class UpdateExpiresResult
     {
-        public bool IsUpdated { get; set; }
-        public bool IsNewChannel { get; set; }
-        public Channel Channel { get; set; }
+        public UpdateExpiresResult(string connectUri)
+        {
+            ConnectUri = connectUri;
+        }
+        public string ConnectUri { get; private set; }
     }
 }

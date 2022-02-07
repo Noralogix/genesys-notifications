@@ -59,7 +59,7 @@ namespace Genesys.Client.Notifications
 
         public bool RequiresReconnect(DateTime dt)
         {
-            if (_subscriptions.Channel.Expires.AddMinutes(2) <= dt) return true;
+            if (_subscriptions.Channel.Expires <= dt) return true;
             var lastHeartbeatsHit = Interlocked.Read(ref _lastHeartbeatsHit);
             if (lastHeartbeatsHit == -1) return false;
             var dtHeartbeats = new DateTime(lastHeartbeatsHit);

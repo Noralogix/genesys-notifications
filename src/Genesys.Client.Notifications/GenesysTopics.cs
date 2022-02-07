@@ -126,7 +126,7 @@ namespace Genesys.Client.Notifications
             if ((await _http.ChannelExistsAsync(Channel)))
             {
                 await _http.ReplaceSubscriptionsAsync(Channel, Items.Keys);
-                Channel.Expires = Channel.Expires.AddHours(24).AddMinutes(-1);
+                Channel.Expires = DateTime.UtcNow.AddMinutes(-1);
                 return new UpdateExpiresResult(Channel.ConnectUri);
             }
             else

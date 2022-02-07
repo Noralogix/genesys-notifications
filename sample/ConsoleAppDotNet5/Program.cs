@@ -10,7 +10,7 @@ namespace ConsoleAppNet5
 {
     class Program
     {
-        const string appConfigName = "appsettings.devhb.json";
+        const string appConfigName = "appsettings.dev.json";
         static async Task Main(string[] args)
         {
 

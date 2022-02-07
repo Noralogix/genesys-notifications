@@ -15,7 +15,7 @@
     <AssemblyVersion>6.0.0.0</AssemblyVersion>
     <FileVersion>6.0.0.0</FileVersion>
     <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
-    <Version>6.0.0</Version>
+    <Version>6.0.1</Version>
     <PackageReleaseNotes>1. Upgraded .NET 6.
 2. Implemented websocket auto restart.</PackageReleaseNotes>
   </PropertyGroup>

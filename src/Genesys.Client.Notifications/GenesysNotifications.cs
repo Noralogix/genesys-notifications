@@ -73,9 +73,9 @@ namespace Genesys.Client.Notifications
 
         public async Task StartAsync()
         {
-            await _websocket.Start();            
-            OnStart();            
+            OnStart();
             _logger.LogDebug("Genesys notifications {ChannelId}", _subscriptions.Channel.Id);
+            await _websocket.StartOrFail();
             if (_subscriptions.Config.Reconnect)
             {
                 _requiresReconnectSubscription = Observable.Range(1, 1)
@@ -99,7 +99,7 @@ namespace Genesys.Client.Notifications
                     .Subscribe(_ =>
                     {
                     });
-            }
+            }            
         }
 
         public async Task UpdateSubscriptionsAsync()
@@ -107,9 +107,9 @@ namespace Genesys.Client.Notifications
             try
             {
                 var result = await _subscriptions.UpdateExpiresAsync();
-                _websocket.Url = new Uri(result.ConnectUri);
-                await _websocket.Reconnect();
                 OnStart();
+                _websocket.Url = new Uri(result.ConnectUri);
+                await _websocket.ReconnectOrFail();                
             }
             catch (Exception ex)
             {
@@ -169,12 +169,19 @@ namespace Genesys.Client.Notifications
 
         public void Dispose()
         {
-            _socketClosingSubscription.Dispose();
-            _heartbeatsSubscription.Dispose();
-            _requiresReconnectSubscription?.Dispose();
-            _messageReceivedSubscription.Dispose();
-            _websocket.Dispose();
-            Streams.Dispose();
+            try
+            {                
+                _socketClosingSubscription.Dispose();
+                _heartbeatsSubscription.Dispose();
+                _messageReceivedSubscription.Dispose();
+                Streams.Dispose();
+                _websocket.Dispose();
+                _requiresReconnectSubscription?.Dispose();                                            
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Cant dispose");
+            }
         }
 
         private void OnStart() => Streams.StartSubject.OnNext(StartResponse.Create(_subscriptions));

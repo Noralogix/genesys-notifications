@@ -123,18 +123,18 @@ namespace Genesys.Client.Notifications
 
         public virtual async Task<UpdateExpiresResult> UpdateExpiresAsync()
         {
-            if ((await _http.ChannelExistsAsync(Channel)))
-            {
-                await _http.ReplaceSubscriptionsAsync(Channel, Items.Keys);
-                Channel.Expires = DateTime.UtcNow.AddHours(24).AddMinutes(-1);
-                return new UpdateExpiresResult(Channel.ConnectUri);
-            }
-            else
-            {
+            //if ((await _http.ChannelExistsAsync(Channel)))
+            //{
+            //    await _http.ReplaceSubscriptionsAsync(Channel, Items.Keys);
+            //    Channel.Expires = DateTime.UtcNow.AddHours(24).AddMinutes(-1);
+            //    return new UpdateExpiresResult(Channel.ConnectUri);
+            //}
+            //else
+            //{
                 Channel = await _http.CreateChannelAsync();
                 await _http.AddSubscriptionsAsync(Channel, Items.Keys);
                 return new UpdateExpiresResult(Channel.ConnectUri);
-            }
+            //}
         }
 
         public void Dispose()

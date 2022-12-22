@@ -22,7 +22,16 @@ namespace Genesys.Client.Notifications.Responses
             var topicName = message.TopicName();
             var topicType = topics.GetTopicType(topicName);
             if (topicType == null) return false;
-            if (topicType.IsGenericType && topicType.GetGenericTypeDefinition() == typeof(NotificationData<>))
+            if (topicType.BaseType == typeof(NotificationData<string>))
+            {
+                var data = Activator.CreateInstance(topicType);
+                var ndata = (NotificationData<string>)data;
+                ndata.EventBody = message.Raw;
+                ndata.TopicName = message.TopicName();
+                ndata.Version = message.Version();
+                subject.OnNext(data);
+            }
+            else if (topicType.IsGenericType && topicType.GetGenericTypeDefinition() == typeof(NotificationData<>))
             {
                 var data = JsonSerializer.Deserialize(message.Raw, topicType, _options.Value);
                 if (data != null) subject.OnNext(data);

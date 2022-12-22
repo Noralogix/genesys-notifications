@@ -35,7 +35,7 @@ namespace Genesys.Client.Notifications
 
 
             _subscriptions = subscriptions;
-            
+
             _websocket = new GenesysWebsocketClient(_subscriptions);
             _websocket.Name = name;
             _websocket.ReconnectTimeout = TimeSpan.FromSeconds(30);
@@ -57,18 +57,18 @@ namespace Genesys.Client.Notifications
             await _websocket.Reconnect();
         }
 
-        public bool RequiresReconnect(DateTime dt)
+        public (bool reconnect, DateTime? dtHeartbeats) RequiresReconnect(DateTime dt)
         {
-            if (_subscriptions.Channel.Expires <= dt) return true;
+            if (_subscriptions.Channel.Expires <= dt) return (true, null);
             var lastHeartbeatsHit = Interlocked.Read(ref _lastHeartbeatsHit);
-            if (lastHeartbeatsHit == -1) return false;
-            var dtHeartbeats = new DateTime(lastHeartbeatsHit);
+            if (lastHeartbeatsHit == -1) return (false, null);
+            var dtHeartbeats = new DateTime(lastHeartbeatsHit, DateTimeKind.Utc);
             if (dtHeartbeats.AddMinutes(1) < dt)
             {
                 Interlocked.Exchange(ref _lastHeartbeatsHit, -1);
-                return true;
+                return (true, dtHeartbeats);
             }
-            return false;
+            return (false, dtHeartbeats);
         }
 
         public async Task StartAsync()
@@ -84,9 +84,10 @@ namespace Genesys.Client.Notifications
                     {
                         try
                         {
-                            if (RequiresReconnect(DateTime.UtcNow))
+                            var (requiresReconnect, dtHeartbeats) = RequiresReconnect(DateTime.UtcNow);
+                            if (requiresReconnect)
                             {
-                                _logger.LogDebug("Expired");
+                                _logger.LogDebug("Expired Heartbeats {Heartbeats}", dtHeartbeats);
                                 await UpdateSubscriptionsAsync();
                             }
                         }
@@ -99,7 +100,7 @@ namespace Genesys.Client.Notifications
                     .Subscribe(_ =>
                     {
                     });
-            }            
+            }
         }
 
         public async Task UpdateSubscriptionsAsync()
@@ -109,7 +110,7 @@ namespace Genesys.Client.Notifications
                 var result = await _subscriptions.UpdateExpiresAsync();
                 OnStart();
                 _websocket.Url = new Uri(result.ConnectUri);
-                await _websocket.ReconnectOrFail();                
+                await _websocket.ReconnectOrFail();
             }
             catch (Exception ex)
             {
@@ -164,19 +165,20 @@ namespace Genesys.Client.Notifications
                 PongResponse.TryHandle(gmessage, Streams.PongSubject) ||
                 HeartbeatResponse.TryHandle(gmessage, Streams.HeartbeatsSubject) ||
                 SocketClosingResponse.TryHandle(gmessage, Streams.SocketClosingSubject) ||
+                SystemResponse.TryHandle(gmessage, Streams.SystemSubject) ||
                 SubscriptionResponse.TryHandle(gmessage, Streams.SubscriptionsSubject, _subscriptions);
         }
 
         public void Dispose()
         {
             try
-            {                
+            {
                 _socketClosingSubscription.Dispose();
                 _heartbeatsSubscription.Dispose();
                 _messageReceivedSubscription.Dispose();
                 Streams.Dispose();
                 _websocket.Dispose();
-                _requiresReconnectSubscription?.Dispose();                                            
+                _requiresReconnectSubscription?.Dispose();
             }
             catch (Exception ex)
             {

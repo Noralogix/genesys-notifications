@@ -16,15 +16,25 @@ namespace Genesys.Client.Notifications.Clients
 
     public class GenesysHttpClient : IDisposable
     {
-        private readonly bool _isDisposableHttp = false;
         private readonly HttpClient _http;
         public IGenesysConfig Config { get; private set; }
 
         private DateTime? _tokenExpires;
         private GenesysAuthTokenInfo _token;
+
+        private Func<HttpClient> _httpFactory;
+        public DateTime? TokenExpires => _tokenExpires;
+
+        private HttpClient Http => _httpFactory != null ? _httpFactory() : _http;
+
+        public GenesysHttpClient(IGenesysConfig config, Func<HttpClient> httpFactory)
+        {
+            Config = config;
+            _httpFactory = httpFactory;
+        }
+
         public GenesysHttpClient(IGenesysConfig config) : this(config, new HttpClient())
         {
-            _isDisposableHttp = true;
         }
 
         public GenesysHttpClient(IGenesysConfig config, HttpClient http)
@@ -145,15 +155,17 @@ namespace Genesys.Client.Notifications.Clients
             await SendApiRequestAsync(request, "Updated channel subscriptions");
         }
 
-        public async Task<GenesysAuthTokenInfo> GetTokenAsync()
+        public async Task<GenesysAuthTokenInfo> GetTokenAsync(bool reload = false)
         {
             var dt = DateTime.UtcNow;
-            if (_token == null || _tokenExpires.HasValue && _tokenExpires <= dt)
+            GenesysAuthTokenInfo newToken = null;
+            if (reload || _token == null || _tokenExpires.HasValue && _tokenExpires.Value.AddMinutes(-2) <= dt)
             {
-                _token = await GetTokenClientCredentialsAsync();
-                _tokenExpires = dt.AddSeconds(_token.ExpiresIn ?? 1000);
+                newToken = await GetTokenClientCredentialsAsync();
+                _token = newToken;
+                _tokenExpires = dt.AddSeconds(newToken.ExpiresIn ?? 1000);
             }
-            return _token;
+            return newToken ?? _token;
         }
 
         public async Task<GenesysAuthTokenInfo> GetTokenClientCredentialsAsync()
@@ -169,7 +181,7 @@ namespace Genesys.Client.Notifications.Clients
                     new KeyValuePair<string, string>("grant_type", "client_credentials"),
             });
             request.Content = content;
-            var response = await _http.SendAsync(request);
+            var response = await Http.SendAsync(request);
 
             try
             {
@@ -191,7 +203,7 @@ namespace Genesys.Client.Notifications.Clients
 
         private async Task<HttpResponseMessage> SendApiRequestAsync(HttpRequestMessage request, string name)
         {
-            var response = await _http.SendAsync(request);
+            var response = await Http.SendAsync(request);
             try
             {
                 response.EnsureSuccessStatusCode();
@@ -226,8 +238,7 @@ namespace Genesys.Client.Notifications.Clients
 
         public void Dispose()
         {
-            if (_isDisposableHttp)
-                _http.Dispose();
+            Http?.Dispose();
         }
     }
 }

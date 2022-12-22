@@ -15,8 +15,8 @@
     <AssemblyVersion>6.0.0.0</AssemblyVersion>
     <FileVersion>6.0.0.0</FileVersion>
     <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
-    <Version>6.0.2</Version>
-    <PackageReleaseNotes>1. Fixed expiry date.</PackageReleaseNotes>
+    <Version>6.0.3</Version>
+    <PackageReleaseNotes>Fixed channel updates after 24 hours.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

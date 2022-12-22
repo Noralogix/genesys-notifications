@@ -131,10 +131,28 @@ namespace Genesys.Client.Notifications
             //}
             //else
             //{
+            return await UpdateExpiresAsync(true, false);
+            //}
+        }
+
+        private async Task<UpdateExpiresResult> UpdateExpiresAsync(bool handleUnauthorize = false, bool reloadToken = false)
+        {
+            try
+            {
+                await _http.GetTokenAsync(reloadToken);
                 Channel = await _http.CreateChannelAsync();
                 await _http.AddSubscriptionsAsync(Channel, Items.Keys);
                 return new UpdateExpiresResult(Channel.ConnectUri);
-            //}
+            }
+            catch (GenesysException gex)
+            {
+                if (handleUnauthorize && gex.ErrorCode == 401)
+                {
+                    return await UpdateExpiresAsync(handleUnauthorize: false, reloadToken: true);
+                }
+                else
+                    throw gex;
+            }
         }
 
         public void Dispose()

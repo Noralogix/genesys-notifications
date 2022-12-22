@@ -1,4 +1,5 @@
 ﻿using Genesys.Client.Notifications;
+using Genesys.Client.Notifications.Clients;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
@@ -23,10 +24,11 @@ namespace ConsoleAppNet5
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConfiguration(configurations.GetSection("Logging")).AddConsole());
 
             var logger = loggerFactory.CreateLogger("Genesys");
-
+            var client = new GenesysHttpClient(genesysConfig);
             try
-            {
-                using (var topics = new GenesysTopics(genesysConfig, logger))
+            {                
+
+                using (var topics = new GenesysTopics(client, logger))
                 {
                     using (var notifications = await topics
                         //.Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations.emails", pcIds.Queues)
@@ -62,7 +64,39 @@ namespace ConsoleAppNet5
                             .Subscribe(_ => Console.WriteLine("Heart beat"));
                         notifications.Streams.SocketClosing
                             .Subscribe(_ => Console.WriteLine("Socket closing"));
+                        notifications.Streams.System
+                            .Subscribe(s => Console.WriteLine("System {0}", s.SystemTopicType, s.Reason, s.ChannelId, s.UserId));
                         notifications.Ping();
+
+                        //var t = Task.Run(async () =>
+                        //{
+                        //    var channel = await client.CreateChannelAsync();
+                        //    for (int i = 0; i < 1000; i++)
+                        //    {
+                        //        channel = await client.CreateChannelAsync();
+                        //        await Task.Delay(TimeSpan.FromSeconds(5));
+                        //    }
+                        //});
+
+                        //var t2 = Task.Run(async () =>
+                        //{
+                        //    var client = new GenesysHttpClient(genesysConfig);                            
+                        //    for (int i = 0; i < 1000; i++)
+                        //    {
+                        //        var channel = await client.GetTokenClientCredentialsAsync();
+                        //        await Task.Delay(TimeSpan.FromSeconds(5));
+                        //    }
+                        //});
+
+                        //var t3 = Task.Run(async () =>
+                        //{
+                        //    for (int i = 0; i < 1000; i++)
+                        //    {
+                        //        await Task.Delay(TimeSpan.FromSeconds(5));
+                        //        notifications.Ping();
+                        //    }
+                        //});
+
                         Console.ReadLine();
                     }
                 }

@@ -2,15 +2,10 @@
 {
     public interface IGenesysConfig
     {
+        string ClientId { get; set; }
+        string ClientSecret { get; set; }
         string Environment { get; set; }
-        int ChannelExpiresHours { get; set; }
-    }
-
-    public class GenesysAuthTokenConfig : IGenesysConfig
-    {
-        public GenesysAuthTokenInfo Token { get; set; }
-        public string Environment { get; set; }
-        public int ChannelExpiresHours { get; set; } = 24;
+        bool Reconnect { get; set; }
     }
 
     public class GenesysConfig : IGenesysConfig
@@ -18,6 +13,6 @@
         public string ClientId { get; set; }
         public string ClientSecret { get; set; }
         public string Environment { get; set; }
-        public int ChannelExpiresHours { get; set; } = 24;
+        public bool Reconnect { get; set; } = true;
     }
 }

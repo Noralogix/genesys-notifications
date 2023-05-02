@@ -38,12 +38,19 @@ namespace Genesys.Client.Notifications
         [JsonPropertyName("entities")] public Channel[] Items { get; set; }
     }
 
+    public class ErrorMessage
+    {
+        [JsonPropertyName("code")] public string Code { get; set; }
+        [JsonPropertyName("status")] public int Status { get; set; }
+        [JsonPropertyName("contextId")] public string ContextId { get; set; }
+        [JsonPropertyName("message")] public string Message { get; set; }
+    }
 
     public partial class Channel
     {
         [JsonPropertyName("connectUri")] public string ConnectUri { get; set; }
         [JsonPropertyName("id")] public string Id { get; set; }
-        [JsonPropertyName("expires")] public DateTime? Expires { get; set; }
+        [JsonPropertyName("expires")] public DateTime Expires { get; set; }
     }
     public partial class ChannelTopic
     {

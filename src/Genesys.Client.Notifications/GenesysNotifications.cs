@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Websocket.Client;
 
@@ -13,51 +14,108 @@ namespace Genesys.Client.Notifications
     {
         private readonly ILogger _logger;
 
-        private GenesysWebsocketClient _websocket;
+        private readonly GenesysWebsocketClient _websocket;
 
-        private IDisposable _messageReceivedSubscription;
+        private readonly IDisposable _messageReceivedSubscription;
+        private readonly IDisposable _socketClosingSubscription;
+        private readonly IDisposable _heartbeatsSubscription;
+
+        private IDisposable _requiresReconnectSubscription;
+
+        private long _lastHeartbeatsHit = -1;
+
         private readonly IGenesysTopicSubscriptions _subscriptions;
-        public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger)
+        public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger, string name)
         {
-            _subscriptions = subscriptions;
-            _websocket = new GenesysWebsocketClient(_subscriptions);
-            _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
+            _ = subscriptions ?? throw new ArgumentNullException(nameof(subscriptions));
+            _ = subscriptions.Channel ?? throw new ArgumentNullException(nameof(subscriptions.Channel));
+            _ = subscriptions.Channel.ConnectUri ?? throw new ArgumentNullException(nameof(subscriptions.Channel.ConnectUri));
+
             _logger = logger;
+
+
+            _subscriptions = subscriptions;
+
+            _websocket = new GenesysWebsocketClient(_subscriptions);
+            _websocket.Name = name;
+            _websocket.ReconnectTimeout = TimeSpan.FromSeconds(30);
+            _websocket.ErrorReconnectTimeout = TimeSpan.FromSeconds(30);
+
+
+            _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
+            _heartbeatsSubscription = Streams.Heartbeats.Subscribe(_ => Interlocked.Exchange(ref _lastHeartbeatsHit, DateTime.UtcNow.Ticks));
+            _socketClosingSubscription = Streams.SocketClosing.Subscribe(async _ =>
+            {
+                _logger.LogDebug("Socket closing and start reconnect {ChannelId}", _subscriptions.Channel.Id);
+                await _websocket.Reconnect();
+            });
+        }
+
+        public async Task ReconnectAsync(string url)
+        {
+            _websocket.Url = new Uri(url);
+            await _websocket.Reconnect();
+        }
+
+        public (bool reconnect, DateTime? dtHeartbeats) RequiresReconnect(DateTime dt)
+        {
+            if (_subscriptions.Channel.Expires <= dt) return (true, null);
+            var lastHeartbeatsHit = Interlocked.Read(ref _lastHeartbeatsHit);
+            if (lastHeartbeatsHit == -1) return (false, null);
+            var dtHeartbeats = new DateTime(lastHeartbeatsHit, DateTimeKind.Utc);
+            if (dtHeartbeats.AddMinutes(1) < dt)
+            {
+                Interlocked.Exchange(ref _lastHeartbeatsHit, -1);
+                return (true, dtHeartbeats);
+            }
+            return (false, dtHeartbeats);
         }
 
         public async Task StartAsync()
         {
-            await _websocket.Start();
             OnStart();
-            _logger.LogDebug("Genesys notifications {ChannelId}", _subscriptions.ChannelId);
-
-            var restartNotifications = Observable.Range(1, 1)
-                .RepeatWhen(observable => observable.Delay(_subscriptions.Expires))
-                .Select(_ => Observable.FromAsync(async () =>
-                {
-                    try
+            _logger.LogDebug("Genesys notifications {ChannelId}", _subscriptions.Channel.Id);
+            await _websocket.StartOrFail();
+            if (_subscriptions.Config.Reconnect)
+            {
+                _requiresReconnectSubscription = Observable.Range(1, 1)
+                    .RepeatWhen(observable => observable.Delay(TimeSpan.FromMinutes(2)))
+                    .Select(_ => Observable.FromAsync(async () =>
                     {
-                        if (_subscriptions.IsExpired)
+                        try
                         {
-                            await _subscriptions.UpdateExpiresAsync();
-                            _logger.LogDebug("WebSocket restarted {ChannelId}", _subscriptions.ChannelId);
-                            OnStart();
+                            var (requiresReconnect, dtHeartbeats) = RequiresReconnect(DateTime.UtcNow);
+                            if (requiresReconnect)
+                            {
+                                _logger.LogDebug("Expired Heartbeats {Heartbeats}", dtHeartbeats);
+                                await UpdateSubscriptionsAsync();
+                            }
                         }
-                    }
-                    catch (Exception ex)
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Expired");
+                        }
+                    }))
+                    .Concat()
+                    .Subscribe(_ =>
                     {
-                        _logger.Log(LogLevel.Error, ex, "Can't restart websocket {ChannelId}", _subscriptions.ChannelId);
-                    }
-                }))
-                .Concat()
-                .Subscribe(_ =>
-                {
-                });
-            Streams.SocketClosing.Subscribe(async _ =>
-            {                
-                await _websocket.Reconnect();
-                _logger.LogDebug("WebSocket closed and reconnected {ChannelId}", _subscriptions.ChannelId);
-            });            
+                    });
+            }
+        }
+
+        public async Task UpdateSubscriptionsAsync()
+        {
+            try
+            {
+                var result = await _subscriptions.UpdateExpiresAsync();
+                OnStart();
+                _websocket.Url = new Uri(result.ConnectUri);
+                await _websocket.ReconnectOrFail();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "Can't update subscriptions");
+            }
         }
 
         /// <summary>
@@ -88,11 +146,11 @@ namespace Genesys.Client.Notifications
                 if (!string.IsNullOrWhiteSpace(messageSafe))
                     Streams.UnhandledMessageSubject.OnNext(messageSafe);
 
-                _logger.LogWarning("Unhandled response {ChannelId} {message}", _subscriptions.ChannelId, messageSafe);
+                _logger.LogWarning("Unhandled response {ChannelId} {message}", _subscriptions.Channel.Id, messageSafe);
             }
             catch (Exception ex)
             {
-                _logger.Log(LogLevel.Error, ex, "Exception while receiving websocket message {ChannelId}", _subscriptions.ChannelId);
+                _logger.LogError(ex, "Exception while receiving websocket message {ChannelId}", _subscriptions.Channel.Id);
             }
         }
 
@@ -107,14 +165,25 @@ namespace Genesys.Client.Notifications
                 PongResponse.TryHandle(gmessage, Streams.PongSubject) ||
                 HeartbeatResponse.TryHandle(gmessage, Streams.HeartbeatsSubject) ||
                 SocketClosingResponse.TryHandle(gmessage, Streams.SocketClosingSubject) ||
+                SystemResponse.TryHandle(gmessage, Streams.SystemSubject) ||
                 SubscriptionResponse.TryHandle(gmessage, Streams.SubscriptionsSubject, _subscriptions);
         }
 
         public void Dispose()
         {
-            _messageReceivedSubscription.Dispose();
-            _websocket.Dispose();
-            Streams.Dispose();
+            try
+            {
+                _socketClosingSubscription.Dispose();
+                _heartbeatsSubscription.Dispose();
+                _messageReceivedSubscription.Dispose();
+                Streams.Dispose();
+                _websocket.Dispose();
+                _requiresReconnectSubscription?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Cant dispose");
+            }
         }
 
         private void OnStart() => Streams.StartSubject.OnNext(StartResponse.Create(_subscriptions));

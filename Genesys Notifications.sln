@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30309.148
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31912.275
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Genesys.Client.Notifications", "src\Genesys.Client.Notifications\Genesys.Client.Notifications.csproj", "{3FE4FDD0-DD25-4D35-A7F9-FFF12C6105E4}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{CA3FE844-CF80-48DF-8925-99760C7BD65D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleAppDotNet5", "sample\ConsoleAppDotNet5\ConsoleAppDotNet5.csproj", "{E2DADF63-47DC-4347-84F4-25C4C4A19CD1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleAppDotNet3", "sample\ConsoleAppDotNet3\ConsoleAppDotNet3.csproj", "{884A827E-11D1-48C1-B6EF-98C26C4CD001}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,6 +31,10 @@ Global
 		{E2DADF63-47DC-4347-84F4-25C4C4A19CD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E2DADF63-47DC-4347-84F4-25C4C4A19CD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E2DADF63-47DC-4347-84F4-25C4C4A19CD1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{884A827E-11D1-48C1-B6EF-98C26C4CD001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{884A827E-11D1-48C1-B6EF-98C26C4CD001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{884A827E-11D1-48C1-B6EF-98C26C4CD001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{884A827E-11D1-48C1-B6EF-98C26C4CD001}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -36,6 +42,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{52131063-2068-41D4-9D00-EF921B2E068F} = {CA3FE844-CF80-48DF-8925-99760C7BD65D}
 		{E2DADF63-47DC-4347-84F4-25C4C4A19CD1} = {CA3FE844-CF80-48DF-8925-99760C7BD65D}
+		{884A827E-11D1-48C1-B6EF-98C26C4CD001} = {CA3FE844-CF80-48DF-8925-99760C7BD65D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {34C1D079-0110-4F99-BD66-E04F462B8CB1}

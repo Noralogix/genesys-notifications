@@ -16,7 +16,7 @@ namespace Genesys.Client.Notifications
         /// Gets or sets the error content (body json object)
         /// </summary>
         /// <value>The error content (HTTP response body).</value>
-        public dynamic ErrorContent { get; private set; }
+        public string ErrorContent { get; private set; }
 
         /// <summary>
         /// Gets or sets the HTTP headers
@@ -47,8 +47,9 @@ namespace Genesys.Client.Notifications
         /// <param name="message">Error message.</param>
         /// <param name="errorContent">Error content.</param>
         /// <param name="headers">HTTP headers.</param>
-        public GenesysException(int errorCode, string message, IDictionary<string, string> headers = null) : base(message)
+        public GenesysException(int errorCode, string errorContent, string message, IDictionary<string, string> headers = null) : base(message)
         {
+            this.ErrorContent = errorContent;
             this.ErrorCode = errorCode;
             this.Headers = headers;
         }

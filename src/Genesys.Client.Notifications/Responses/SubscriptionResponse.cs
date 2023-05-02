@@ -18,25 +18,32 @@ namespace Genesys.Client.Notifications.Responses
         });
 
         internal static bool TryHandle(GenesysMessage message, ISubject<object> subject, IGenesysTopicSubscriptions topics)
-        {            
+        {
             var topicName = message.TopicName();
-            if (topics.Items.ContainsKey(topicName))
+            var topicType = topics.GetTopicType(topicName);
+            if (topicType == null) return false;
+            if (topicType.BaseType == typeof(NotificationData<string>))
             {
-                var topicType = topics.Items[topicName];
-                if (topicType.IsGenericType && topicType.GetGenericTypeDefinition() == typeof(NotificationData<>))
-                {
-                    var data = JsonSerializer.Deserialize(message.Raw, topicType, _options.Value);
-                    if (data != null) subject.OnNext(data);
-                }
-                else
-                {
-                    var body = message.EventBody();
-                    var data = JsonSerializer.Deserialize(body.Value.GetRawText(), topics.Items[topicName], _options.Value);
-                    if (data != null) subject.OnNext(data);
-                }
-                return true;
+                var data = Activator.CreateInstance(topicType);
+                var ndata = (NotificationData<string>)data;
+                var body = message.EventBody();
+                ndata.EventBody = message.Raw;
+                ndata.TopicName = message.TopicName();
+                ndata.Version = message.Version();
+                subject.OnNext(data);
             }
-            return false;
+            else if (topicType.IsGenericType && topicType.GetGenericTypeDefinition() == typeof(NotificationData<>))
+            {
+                var data = JsonSerializer.Deserialize(message.Raw, topicType, _options.Value);
+                if (data != null) subject.OnNext(data);
+            }
+            else
+            {
+                var body = message.EventBody();
+                var data = JsonSerializer.Deserialize(body.Value.GetRawText(), topicType, _options.Value);
+                if (data != null) subject.OnNext(data);
+            }
+            return true;
         }
     }
 }

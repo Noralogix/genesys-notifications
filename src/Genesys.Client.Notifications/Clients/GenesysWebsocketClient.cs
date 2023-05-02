@@ -5,7 +5,7 @@ namespace Genesys.Client.Notifications.Clients
     public class GenesysWebsocketClient : WebsocketClient
     {
         public GenesysWebsocketClient(IGenesysTopicSubscriptions topicSubscriptions)
-            : base(new System.Uri(topicSubscriptions.ChannelURI))
+            : base(new System.Uri(topicSubscriptions.Channel.ConnectUri))
         {
         }
 

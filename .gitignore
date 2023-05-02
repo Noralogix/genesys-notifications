@@ -16,3 +16,7 @@
 /sample/ConsoleAppDotNet5/appsettings.dev.json
 /sample/ConsoleAppDotNet5/appsettings.devhb.json
 /sample/ConsoleAppDotNet3/obj
+/sample/ConsoleAppDotNet6/appsettings.devhb.json
+/sample/ConsoleAppDotNet6/appsettings.dev.json
+/sample/ConsoleAppDotNet6/bin
+/sample/ConsoleAppDotNet6/obj

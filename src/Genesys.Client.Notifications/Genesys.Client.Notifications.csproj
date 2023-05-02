@@ -17,6 +17,7 @@
     <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
     <Version>6.0.3</Version>
     <PackageReleaseNotes>Fixed channel updates after 24 hours.</PackageReleaseNotes>
+    <PackageReadmeFile>sample\README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

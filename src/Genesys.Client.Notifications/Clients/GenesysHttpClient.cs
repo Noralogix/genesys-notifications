@@ -75,7 +75,7 @@ namespace Genesys.Client.Notifications.Clients
         /// </summary>
         /// <returns></returns>
         /// <exception cref="GenesysException"></exception>
-        public async Task<Channel> CreateChannelAsync()
+        public virtual async Task<Channel> CreateChannelAsync()
         {
             var authToken = await GetTokenAsync();
             var path = "/api/v2/notifications/channels";
@@ -100,7 +100,7 @@ namespace Genesys.Client.Notifications.Clients
         /// <param name="channel"></param>
         /// <param name="topics"></param>
         /// <returns></returns>
-        public async Task AddSubscriptionsAsync(Channel channel, IEnumerable<string> topics)
+        public virtual async Task AddSubscriptionsAsync(Channel channel, IEnumerable<string> topics)
         {
             var authToken = await GetTokenAsync();
 

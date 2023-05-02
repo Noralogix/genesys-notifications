@@ -26,6 +26,7 @@ namespace Genesys.Client.Notifications.Responses
             {
                 var data = Activator.CreateInstance(topicType);
                 var ndata = (NotificationData<string>)data;
+                var body = message.EventBody();
                 ndata.EventBody = message.Raw;
                 ndata.TopicName = message.TopicName();
                 ndata.Version = message.Version();

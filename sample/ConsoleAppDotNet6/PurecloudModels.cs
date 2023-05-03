@@ -2,6 +2,9 @@
 
 namespace ConsoleAppDotNet6
 {
+    public record AnalyticsUsersAggregatesData(string interval, AnalyticsUsersAggregatesMetric[] metrics);
+    public record AnalyticsUsersAggregatesMetric(string metric, string qualifier);
+    public record AnalyticsUsersAggregates(AnalyticsUsersAggregatesData[] data);
     public record EvaluationQualityV2TopicEvaluationV2();
     public record PresenceEventOrganizationPresence(string Id, string SystemPresence);
     public record PresenceEventUserPresence(PresenceEventOrganizationPresence PresenceDefinition, bool? Primary, string Message, DateTime? ModifiedDate);
@@ -42,8 +45,10 @@ namespace ConsoleAppDotNet6
         None
     }
 
-    public class PurecloudDataIds
-    {
+    public class PurecloudAppConfig
+    {        
+        public string OrgId { get; set; }
+        public string AzStorage { get; set; }
         public string[] Queues { get; set; }
         public string[] Users { get; set; }
     }

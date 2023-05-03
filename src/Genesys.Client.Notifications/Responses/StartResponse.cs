@@ -7,11 +7,11 @@ namespace Genesys.Client.Notifications.Responses
         public Channel Channel { get; set; }
         public string[] Topics { get; set; }
 
-        internal static StartResponse Create(IGenesysTopicSubscriptions subscriptions)
+        internal static StartResponse Create(Channel channel)
             => new StartResponse
             {
-                Channel = subscriptions.Channel,
-                Topics = subscriptions.GetTopics(),
+                Channel = channel,
+                Topics = new string[] { },
             };
     }
 }

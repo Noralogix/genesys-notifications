@@ -7,10 +7,14 @@ using Genesys.Client.Notifications.Clients;
 
 namespace Genesys.Client.Notifications
 {
-    public interface IGenesysTopicSubscriptions
+    public interface IGenesysChannels
     {
-        Task<UpdateExpiresResult> UpdateExpiresAsync();
-        Channel Channel { get; }
+        List<Channel> Channels { get; }
+        DateTime Expires { get; }
+    }
+    public interface IGenesysTopicSubscriptions : IGenesysChannels
+    {
+        Task UpdateExpiresAsync();
         IGenesysConfig Config { get; }
         Type GetTopicType(string topicName);
         string[] GetTopics();
@@ -18,9 +22,11 @@ namespace Genesys.Client.Notifications
 
     public class GenesysTopics : IGenesysTopicSubscriptions, IDisposable
     {
+        private const int _topicsAmountPerChannel = 1000;
         public Dictionary<string, Type> Items { get; } = new Dictionary<string, Type>();
         public List<string> _topics = new List<string>();
-        public Channel Channel { get; private set; }
+        public DateTime Expires => Channels.Min(c => c.Expires);
+        public List<Channel> Channels { get; } = new List<Channel>();
         public IGenesysConfig Config { get; private set; }
 
         private GenesysNotifications _notifications;
@@ -56,23 +62,7 @@ namespace Genesys.Client.Notifications
         /// <param name="topic">Genesys Cloud Topic</param>
         /// <param name="ids">Genesys Cloud id's</param>
         /// <returns></returns>
-        public GenesysTopics Add<TTopic>(string topic, string[] ids = null)
-        {
-            if (_notifications != null) throw new Exception("Cant add topic. Already subscribed.");
-            if (ids == null)
-            {
-                Items.Add(topic, typeof(TTopic));
-            }
-            else
-            {
-                foreach (var topicWithId in ids.Select(id => topic.Replace("{id}", id)))
-                {
-                    if (!Items.ContainsKey(topicWithId))
-                        Items.Add(topicWithId, typeof(TTopic));
-                }
-            }
-            return this;
-        }
+        public GenesysTopics Add<TTopic>(string topic, string[] ids = null) => Add(topic, typeof(TTopic), ids);
 
         /// <summary>
         /// Non typed subscribtion
@@ -93,6 +83,32 @@ namespace Genesys.Client.Notifications
             return this;
         }
 
+        /// <summary>
+        /// Available topics https://developer.genesys.cloud/api/rest/v2/notifications/available_topics        
+        /// </summary>
+        /// <param name="topic">Genesys Cloud Topic</param>
+        /// <param name="topicType">Topic Type</param>
+        /// <param name="ids">Genesys Cloud id's</param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public GenesysTopics Add(string topic, Type topicType, string[] ids = null)
+        {
+            if (_notifications != null) throw new Exception("Cant add topic. Already subscribed.");
+            if (ids == null)
+            {
+                Items.Add(topic, topicType);
+            }
+            else
+            {
+                foreach (var topicWithId in ids.Select(id => topic.Replace("{id}", id)))
+                {
+                    if (!Items.ContainsKey(topicWithId))
+                        Items.Add(topicWithId, topicType);
+                }
+            }
+            return this;
+        }
+
         public async Task AddAsync<TTopic>(string topic, string[] ids = null)
         {
             if (_notifications == null) throw new Exception("Cant update topic. Channel have not created.");
@@ -108,68 +124,56 @@ namespace Genesys.Client.Notifications
                         Items.Add(topicWithId, typeof(TTopic));
                 }
             }
-            await _http.ReplaceSubscriptionsAsync(Channel, Items.Keys);
+            await UpdateExpiresAsync();
         }
+
 
         public virtual async Task<GenesysNotifications> CreateAsync(string name = "GenesysCloudWS")
         {
-            Channel = await _http.CreateChannelAsync();
-
-            await _http.AddSubscriptionsAsync(Channel, Items.Keys);
+            foreach (var items in Items.Keys.Chunk(_topicsAmountPerChannel))
+            {
+                var channel = await _http.CreateChannelAsync();
+                Channels.Add(channel);
+                await _http.AddSubscriptionsAsync(channel, items);
+            }
             _notifications = new GenesysNotifications(this, _logger, name);
             await _notifications.StartAsync();
             return _notifications;
         }
 
-        public virtual async Task<UpdateExpiresResult> UpdateExpiresAsync()
+        public virtual async Task UpdateExpiresAsync()
         {
-            //if ((await _http.ChannelExistsAsync(Channel)))
-            //{
-            //    await _http.ReplaceSubscriptionsAsync(Channel, Items.Keys);
-            //    Channel.Expires = DateTime.UtcNow.AddHours(24).AddMinutes(-1);
-            //    return new UpdateExpiresResult(Channel.ConnectUri);
-            //}
-            //else
-            //{
-            return await UpdateExpiresAsync(true, false);
-            //}
+            await UpdateExpiresAsync(true, false);
         }
 
-        private async Task<UpdateExpiresResult> UpdateExpiresAsync(bool handleUnauthorize = false, bool reloadToken = false)
+        private async Task UpdateExpiresAsync(bool handleUnauthorize = false, bool reloadToken = false)
         {
             try
             {
-                await _http.GetTokenAsync(reloadToken);
-                Channel = await _http.CreateChannelAsync();
-                await _http.AddSubscriptionsAsync(Channel, Items.Keys);
-                return new UpdateExpiresResult(Channel.ConnectUri);
+                Channels.Clear();
+                foreach (var items in Items.Keys.Chunk(1000))
+                {
+                    var channel = await _http.CreateChannelAsync();
+                    Channels.Add(channel);
+                    await _http.AddSubscriptionsAsync(channel, items);
+                }
             }
             catch (GenesysException gex)
             {
                 if (handleUnauthorize && gex.ErrorCode == 401)
                 {
-                    return await UpdateExpiresAsync(handleUnauthorize: false, reloadToken: true);
+                    await UpdateExpiresAsync(handleUnauthorize: false, reloadToken: true);
                 }
                 else
                     throw gex;
             }
         }
 
+        public Type GetTopicType(string topicName) => Items.ContainsKey(topicName) ? Items[topicName] : null;
+        public string[] GetTopics() => Items.Keys.ToArray();
         public void Dispose()
         {
             _http.Dispose();
         }
-
-        public Type GetTopicType(string topicName) => Items.ContainsKey(topicName) ? Items[topicName] : null;
-        public string[] GetTopics() => Items.Keys.ToArray();
-    }
-
-    public class UpdateExpiresResult
-    {
-        public UpdateExpiresResult(string connectUri)
-        {
-            ConnectUri = connectUri;
-        }
-        public string ConnectUri { get; private set; }
     }
 }

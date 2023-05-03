@@ -26,16 +26,18 @@ namespace Genesys.Client.Notifications.Responses
 
         public string Raw => _raw;
 
-        public GenesysMessage(JsonElement root, string raw)
+        public string ChannelId { get; }
+        public GenesysMessage(string channelId, JsonElement root, string raw)
         {
             _root = root;
             _raw = raw;
+            ChannelId = channelId;
         }
     }
 
     internal partial class GenesysMessage
     {
-        public static GenesysMessage Parse(string raw) => new GenesysMessage(
+        public static GenesysMessage Parse(string raw, string channelId) => new GenesysMessage(channelId,
             Json.TryParse(raw) ?? throw new Exception("Genesys WebSocket message is broken. Cant parse json."), raw
         );
     }

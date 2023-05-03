@@ -2,11 +2,10 @@
 using Genesys.Client.Notifications.Responses;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using Websocket.Client;
 
 namespace Genesys.Client.Notifications
 {
@@ -15,102 +14,82 @@ namespace Genesys.Client.Notifications
         private readonly ILogger _logger;
 
         private readonly GenesysWebsocketClient _websocket;
-
-        private readonly IDisposable _messageReceivedSubscription;
         private readonly IDisposable _socketClosingSubscription;
         private readonly IDisposable _heartbeatsSubscription;
 
-        private IDisposable _requiresReconnectSubscription;
+        private bool? _requiresReconnect = null;
+        private DateTime? _lastHeartbeats = null;
 
-        private long _lastHeartbeatsHit = -1;
+        private const int heartbeatDelayMinutes = 1;
+        private static TimeSpan _heartbeatsBuffer = TimeSpan.FromMinutes(2);
+        private static TimeSpan _heartbeatsPeriod = TimeSpan.FromMinutes(1);
 
         private readonly IGenesysTopicSubscriptions _subscriptions;
         public GenesysNotifications(IGenesysTopicSubscriptions subscriptions, ILogger logger, string name)
         {
             _ = subscriptions ?? throw new ArgumentNullException(nameof(subscriptions));
-            _ = subscriptions.Channel ?? throw new ArgumentNullException(nameof(subscriptions.Channel));
-            _ = subscriptions.Channel.ConnectUri ?? throw new ArgumentNullException(nameof(subscriptions.Channel.ConnectUri));
+            _ = subscriptions.Channels ?? throw new ArgumentException(nameof(subscriptions.Channels));
 
             _logger = logger;
-
-
             _subscriptions = subscriptions;
 
-            _websocket = new GenesysWebsocketClient(_subscriptions);
+            _websocket = new GenesysWebsocketClient(_subscriptions, HandleMessage);
             _websocket.Name = name;
             _websocket.ReconnectTimeout = TimeSpan.FromSeconds(30);
             _websocket.ErrorReconnectTimeout = TimeSpan.FromSeconds(30);
 
+            var checkHeartbeats = Observable.Interval(_heartbeatsPeriod);
 
-            _messageReceivedSubscription = _websocket.MessageReceived.Subscribe(HandleMessage);
-            _heartbeatsSubscription = Streams.Heartbeats.Subscribe(_ => Interlocked.Exchange(ref _lastHeartbeatsHit, DateTime.UtcNow.Ticks));
-            _socketClosingSubscription = Streams.SocketClosing.Subscribe(async _ =>
+            _heartbeatsSubscription = checkHeartbeats.CombineLatest(Streams.Heartbeats, (_, h) => h)
+                .Buffer(_heartbeatsBuffer)
+                .Select(items => Observable.FromAsync(() => RequiresReconnect(items)))
+                .Concat()
+                .Subscribe(_ => { }, (error) => _logger.LogError(error, "Internal Heartbeats"));
+            _socketClosingSubscription = Streams.SocketClosing.Subscribe(async args =>
             {
-                _logger.LogDebug("Socket closing and start reconnect {ChannelId}", _subscriptions.Channel.Id);
-                await _websocket.Reconnect();
+                _logger.LogDebug("Socket closing and start reconnect {ChannelId}", args.ChannelId);
+                await _websocket.Reconnect(args.ChannelId);
             });
         }
 
-        public async Task ReconnectAsync(string url)
+        private async Task RequiresReconnect(IList<HeartbeatResponse> heartbeats)
         {
-            _websocket.Url = new Uri(url);
-            await _websocket.Reconnect();
+            var date = DateTime.UtcNow;
+            var result = heartbeats.GroupBy(x => x.ChannelId)
+                 .Select(g => new { ChannelId = g.Key, LatestDate = g.Max(x => x.Date) })
+                 .ToList();
+            if (result.Count > 0) _lastHeartbeats = result.Min(i => i.LatestDate);
+            var requiresReconnect = result.Count < _subscriptions.Channels.Count
+                || _lastHeartbeats.HasValue && _lastHeartbeats.Value.AddMinutes(heartbeatDelayMinutes) < date;
+            _requiresReconnect = requiresReconnect;
+
+            if (requiresReconnect && _subscriptions.Config.Reconnect)
+            {
+                _logger.LogDebug("Expired Heartbeats {Heartbeats}", _lastHeartbeats);
+                await UpdateSubscriptionsAsync();
+            }
         }
 
         public (bool reconnect, DateTime? dtHeartbeats) RequiresReconnect(DateTime dt)
         {
-            if (_subscriptions.Channel.Expires <= dt) return (true, null);
-            var lastHeartbeatsHit = Interlocked.Read(ref _lastHeartbeatsHit);
-            if (lastHeartbeatsHit == -1) return (false, null);
-            var dtHeartbeats = new DateTime(lastHeartbeatsHit, DateTimeKind.Utc);
-            if (dtHeartbeats.AddMinutes(1) < dt)
-            {
-                Interlocked.Exchange(ref _lastHeartbeatsHit, -1);
-                return (true, dtHeartbeats);
-            }
-            return (false, dtHeartbeats);
+            if (_subscriptions.Expires <= dt) return (true, null);
+            return (_requiresReconnect ?? false, _lastHeartbeats);
         }
 
         public async Task StartAsync()
         {
             OnStart();
-            _logger.LogDebug("Genesys notifications {ChannelId}", _subscriptions.Channel.Id);
+            _logger.LogDebug("Genesys notifications starting {ChannelsCount}", _subscriptions.Channels.Count);
             await _websocket.StartOrFail();
-            if (_subscriptions.Config.Reconnect)
-            {
-                _requiresReconnectSubscription = Observable.Range(1, 1)
-                    .RepeatWhen(observable => observable.Delay(TimeSpan.FromMinutes(2)))
-                    .Select(_ => Observable.FromAsync(async () =>
-                    {
-                        try
-                        {
-                            var (requiresReconnect, dtHeartbeats) = RequiresReconnect(DateTime.UtcNow);
-                            if (requiresReconnect)
-                            {
-                                _logger.LogDebug("Expired Heartbeats {Heartbeats}", dtHeartbeats);
-                                await UpdateSubscriptionsAsync();
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Expired");
-                        }
-                    }))
-                    .Concat()
-                    .Subscribe(_ =>
-                    {
-                    });
-            }
         }
 
         public async Task UpdateSubscriptionsAsync()
         {
             try
             {
-                var result = await _subscriptions.UpdateExpiresAsync();
-                OnStart();
-                _websocket.Url = new Uri(result.ConnectUri);
+                await _subscriptions.UpdateExpiresAsync();
                 await _websocket.ReconnectOrFail();
+                OnStart();
             }
             catch (Exception ex)
             {
@@ -125,8 +104,9 @@ namespace Genesys.Client.Notifications
 
         public void Ping() => _websocket?.Ping();
 
-        private void HandleMessage(ResponseMessage message)
+        private void HandleMessage(GenesysChannelResponseMessage gc)
         {
+            var message = gc.Message;
             try
             {
                 bool handled;
@@ -134,7 +114,7 @@ namespace Genesys.Client.Notifications
 
                 if (messageSafe.StartsWith("{"))
                 {
-                    handled = HandleObjectMessage(messageSafe);
+                    handled = HandleObjectMessage(messageSafe, gc.ChannelId);
                     if (handled)
                         return;
                 }
@@ -146,11 +126,11 @@ namespace Genesys.Client.Notifications
                 if (!string.IsNullOrWhiteSpace(messageSafe))
                     Streams.UnhandledMessageSubject.OnNext(messageSafe);
 
-                _logger.LogWarning("Unhandled response {ChannelId} {message}", _subscriptions.Channel.Id, messageSafe);
+                _logger.LogWarning("Unhandled response {message}", messageSafe);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception while receiving websocket message {ChannelId}", _subscriptions.Channel.Id);
+                _logger.LogError(ex, "Exception while receiving websocket message");
             }
         }
 
@@ -158,9 +138,9 @@ namespace Genesys.Client.Notifications
         {
             return true;
         }
-        private bool HandleObjectMessage(string msg)
+        private bool HandleObjectMessage(string msg, string channelId)
         {
-            var gmessage = GenesysMessage.Parse(msg);
+            var gmessage = GenesysMessage.Parse(msg, channelId);
             return
                 PongResponse.TryHandle(gmessage, Streams.PongSubject) ||
                 HeartbeatResponse.TryHandle(gmessage, Streams.HeartbeatsSubject) ||
@@ -175,10 +155,8 @@ namespace Genesys.Client.Notifications
             {
                 _socketClosingSubscription.Dispose();
                 _heartbeatsSubscription.Dispose();
-                _messageReceivedSubscription.Dispose();
                 Streams.Dispose();
                 _websocket.Dispose();
-                _requiresReconnectSubscription?.Dispose();
             }
             catch (Exception ex)
             {
@@ -186,6 +164,6 @@ namespace Genesys.Client.Notifications
             }
         }
 
-        private void OnStart() => Streams.StartSubject.OnNext(StartResponse.Create(_subscriptions));
+        private void OnStart() => _subscriptions.Channels.ForEach(ch => Streams.StartSubject.OnNext(StartResponse.Create(ch)));
     }
 }

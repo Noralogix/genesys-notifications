@@ -79,8 +79,9 @@ namespace Genesys.Client.Notifications
         public async Task StartAsync()
         {
             OnStart();
-            _logger.LogDebug("Genesys notifications starting {ChannelsCount}", _subscriptions.Channels.Count);
+            _logger.LogDebug("Genesys notifications starting {ChannelsCount}  {Expires}", _subscriptions.Channels.Count, _subscriptions.Expires);
             await _websocket.StartOrFail();
+            _logger.LogDebug("Genesys notifications started");
         }
 
         public async Task UpdateSubscriptionsAsync()

@@ -130,6 +130,8 @@ namespace Genesys.Client.Notifications
 
         public virtual async Task<GenesysNotifications> CreateAsync(string name = "GenesysCloudWS")
         {
+            _logger.LogDebug("Genesys notifications topics {TopicsCount}", Items.Count);
+
             foreach (var items in Items.Keys.Chunk(_topicsAmountPerChannel))
             {
                 var channel = await _http.CreateChannelAsync();

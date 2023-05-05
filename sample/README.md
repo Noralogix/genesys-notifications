@@ -1,6 +1,7 @@
 You can query asynchronous Genesys Cloud event streams using LINQ operators. Thus you can filter, project, aggregate, compose and perform time-based operations on multiple events easily by using these standard LINQ operators.
 
 C# .NET Standard 2.0 lightweight implementation of the client Genesys Notifications websocket API with default 24 hours reconnection and handling socket closing notification.
+- Multiple channels if more than 1000 topics. 
 - Serialization based on System.Text.Json. 
 - Logging functionality based on Microsoft.Extensions.Logging.  
 - User friendly with reactive model programming.

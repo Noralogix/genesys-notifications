@@ -7,6 +7,7 @@ This is a C# .NET Standard 2.0 alternative lightweight implementation of the cli
 - Serialization based on System.Text.Json. 
 - Logging functionality based on Microsoft.Extensions.Logging.  
 - User friendly with reactive model programming.
+- Multiple channels if more than 1000 topics. 
 
 ```{"language":"csharp"}
 Install-Package Genesys.Client.Notifications

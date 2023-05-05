@@ -15,8 +15,8 @@
     <AssemblyVersion>6.0.0.0</AssemblyVersion>
     <FileVersion>6.0.0.0</FileVersion>
     <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
-    <Version>6.1.0</Version>
-    <PackageReleaseNotes>Upgrade dependencies.</PackageReleaseNotes>
+    <Version>6.1.1</Version>
+    <PackageReleaseNotes>Multiple channels.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

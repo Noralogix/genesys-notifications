@@ -14,7 +14,7 @@ namespace Genesys.Client.Notifications
     }
     public interface IGenesysTopicSubscriptions : IGenesysChannels
     {
-        Task UpdateExpiresAsync();
+        Task UpdateAsync();
         IGenesysConfig Config { get; }
         Type GetTopicType(string topicName);
         string[] GetTopics();
@@ -72,8 +72,10 @@ namespace Genesys.Client.Notifications
         /// <returns></returns>
         public GenesysTopics Add(string topic, string[] ids = null)
         {
-            if (_notifications != null) throw new Exception("Cant add topic. Already subscribed.");
-            if (ids == null) _topics.Add(topic);
+            if (ids == null)
+            {
+                if (!Items.ContainsKey(topic)) _topics.Add(topic);
+            }
             else
                 foreach (var topicWithId in ids.Select(id => topic.Replace("{id}", id)))
                 {
@@ -93,25 +95,22 @@ namespace Genesys.Client.Notifications
         /// <exception cref="Exception"></exception>
         public GenesysTopics Add(string topic, Type topicType, string[] ids = null)
         {
-            if (_notifications != null) throw new Exception("Cant add topic. Already subscribed.");
             if (ids == null)
             {
-                Items.Add(topic, topicType);
+                if (!Items.ContainsKey(topic)) Items.Add(topic, topicType);
             }
             else
             {
                 foreach (var topicWithId in ids.Select(id => topic.Replace("{id}", id)))
                 {
-                    if (!Items.ContainsKey(topicWithId))
-                        Items.Add(topicWithId, topicType);
+                    if (!Items.ContainsKey(topicWithId)) Items.Add(topicWithId, topicType);
                 }
             }
             return this;
         }
 
-        public async Task AddAsync<TTopic>(string topic, string[] ids = null)
+        public async Task UpdateAsync<TTopic>(string topic, string[] ids = null)
         {
-            if (_notifications == null) throw new Exception("Cant update topic. Channel have not created.");
             if (ids == null)
             {
                 Items.Add(topic, typeof(TTopic));
@@ -124,7 +123,7 @@ namespace Genesys.Client.Notifications
                         Items.Add(topicWithId, typeof(TTopic));
                 }
             }
-            await UpdateExpiresAsync();
+            await UpdateAsync();
         }
 
 
@@ -143,12 +142,12 @@ namespace Genesys.Client.Notifications
             return _notifications;
         }
 
-        public virtual async Task UpdateExpiresAsync()
+        public virtual async Task UpdateAsync()
         {
-            await UpdateExpiresAsync(true, false);
+            await UpdateAsync(true, false);
         }
 
-        private async Task UpdateExpiresAsync(bool handleUnauthorize = false, bool reloadToken = false)
+        private async Task UpdateAsync(bool handleUnauthorize = false, bool reloadToken = false)
         {
             try
             {
@@ -164,14 +163,14 @@ namespace Genesys.Client.Notifications
             {
                 if (handleUnauthorize && gex.ErrorCode == 401)
                 {
-                    await UpdateExpiresAsync(handleUnauthorize: false, reloadToken: true);
+                    await UpdateAsync(handleUnauthorize: false, reloadToken: true);
                 }
                 else
                     throw gex;
             }
         }
-
-        public Type GetTopicType(string topicName) => Items.ContainsKey(topicName) ? Items[topicName] : null;
+        public Func<string, Type> TopicTypeResolver { get; set; } = _ => null;
+        public Type GetTopicType(string topicName) => Items.ContainsKey(topicName) ? Items[topicName] : TopicTypeResolver(topicName);
         public string[] GetTopics() => Items.Keys.ToArray();
         public void Dispose()
         {

@@ -88,7 +88,7 @@ namespace Genesys.Client.Notifications
         {
             try
             {
-                await _subscriptions.UpdateExpiresAsync();
+                await _subscriptions.UpdateAsync();
                 await _websocket.ReconnectOrFail();
                 OnStart();
             }

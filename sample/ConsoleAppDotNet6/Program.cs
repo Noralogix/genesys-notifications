@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Reactive.Linq;
 
-var appConfigName = "appsettings.devhb.json";
+var appConfigName = "appsettings.dev.json";
 var builder = new ConfigurationBuilder()
              .SetBasePath(Directory.GetCurrentDirectory())
              .AddJsonFile(appConfigName, optional: false, reloadOnChange: true);
@@ -16,27 +16,41 @@ var loggerFactory = LoggerFactory.Create(builder => builder.AddConfiguration(con
 
 var logger = loggerFactory.CreateLogger("Genesys");
 var client = new GenesysHttpClient(genesysConfig);
+var ds = new DataService();
 try
 {
-    var users = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudUsers);
-    var usersIds = users.Select(u => u.Id).ToArray();
+    //var users = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudUsers);
+    //var usersIds = users.Select(u => u.Id).ToArray();
 
     var queues = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudQueues);
     var queuesIds = queues.Select(u => u.Id).ToArray();
 
 
-    logger.LogInformation("User count {UCount}. Queues count {QCount}", users.Count, queues.Count);
+    //logger.LogInformation("User count {UCount}. Queues count {QCount}", users.Count, queues.Count);
+    logger.LogInformation("Queues count {QCount}", queues.Count);
     using (var topics = new GenesysTopics(client, logger))
     {
         using (var notifications = await topics
-            //.Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations.emails", pcIds.Queues)
-            .Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations", queuesIds)
+            //.Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations.emails", queuesIds)
+            .Add<QueueConversationCallEventTopicCallConversation>("v2.routing.queues.{id}.conversations.calls", queuesIds)
             //.Add<EvaluationQualityV2TopicEvaluationV2>("v2.quality.evaluations")
-            .Add<AnalyticsUsersAggregates>("v2.analytics.users.{id}.aggregates", usersIds)
-            .Add<NotificationData<AnalyticsUsersAggregates>>("v2.analytics.queues.{id}.observations", queuesIds)
-            .Add<NotificationData<PresenceEventUserPresence>>("v2.users.{id}.presence", usersIds)
+            //.Add<AnalyticsUsersAggregates>("v2.analytics.users.{id}.aggregates", usersIds)
+            //.Add<NotificationData<AnalyticsUsersAggregates>>("v2.analytics.queues.{id}.observations", queuesIds)
+            //.Add<NotificationData<PresenceEventUserPresence>>("v2.users.{id}.presence", usersIds)
             .CreateAsync())
         {
+            notifications.Streams.Domain
+                .OfType<QueueConversationCallEventTopicCallConversation>()
+                .Subscribe(e =>
+                {
+                    ds.Add(e);
+                    Console.WriteLine("[{0}] {1}", DateTime.Now, e.Id);
+                    foreach (var item in e.Participants)
+                    {
+                        Console.WriteLine(item);
+                    }
+                });
+
             notifications.Streams.Domain
                 .OfType<QueueConversationEmailEventTopicEmailConversation>()
                 .Subscribe(e =>

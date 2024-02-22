@@ -21,20 +21,21 @@ try
 {
     //var users = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudUsers);
     //var usersIds = users.Select(u => u.Id).ToArray();
-
-    var queues = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudQueues);
-    var queuesIds = queues.Select(u => u.Id).ToArray();
+    var usersIds = appConfig.Users;
+    //var queues = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudQueues);
+    //var queuesIds = queues.Select(u => u.Id).ToArray();
 
 
     //logger.LogInformation("User count {UCount}. Queues count {QCount}", users.Count, queues.Count);
-    logger.LogInformation("Queues count {QCount}", queues.Count);
+    //logger.LogInformation("Queues count {QCount}", queues.Count);
+    logger.LogInformation("Users count {Users}", usersIds.Count());
     using (var topics = new GenesysTopics(client, logger))
     {
         using (var notifications = await topics
             //.Add<QueueConversationEmailEventTopicEmailConversation>("v2.routing.queues.{id}.conversations.emails", queuesIds)
-            .Add<QueueConversationCallEventTopicCallConversation>("v2.routing.queues.{id}.conversations.calls", queuesIds)
+            //.Add<QueueConversationCallEventTopicCallConversation>("v2.routing.queues.{id}.conversations.calls", queuesIds)
             //.Add<EvaluationQualityV2TopicEvaluationV2>("v2.quality.evaluations")
-            //.Add<AnalyticsUsersAggregates>("v2.analytics.users.{id}.aggregates", usersIds)
+            .Add<NotificationData<AnalyticsUsersAggregates>>("v2.analytics.users.{id}.aggregates", usersIds)
             //.Add<NotificationData<AnalyticsUsersAggregates>>("v2.analytics.queues.{id}.observations", queuesIds)
             //.Add<NotificationData<PresenceEventUserPresence>>("v2.users.{id}.presence", usersIds)
             .CreateAsync())

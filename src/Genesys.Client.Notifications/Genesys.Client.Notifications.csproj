@@ -15,8 +15,9 @@
     <AssemblyVersion>6.0.0.0</AssemblyVersion>
     <FileVersion>6.0.0.0</FileVersion>
     <RepositoryUrl>https://github.com/Noralogix/genesys-notifications</RepositoryUrl>
-    <Version>6.1.2</Version>
-    <PackageReleaseNotes>Implemented TopicTypeResolver for multiple concatenated topics.</PackageReleaseNotes>
+    <Version>6.1.3</Version>
+    <PackageReleaseNotes>- Implemented .NET 6
+- Updated dependences</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

@@ -5,6 +5,7 @@ namespace ConsoleAppDotNet6
     public record AnalyticsUsersAggregatesData(string interval, AnalyticsUsersAggregatesMetric[] metrics);
     public record AnalyticsUsersAggregatesMetric(string metric, string qualifier);
     public record AnalyticsUsersAggregates(AnalyticsUsersAggregatesData[] data);
+    public record AnalyticsQueuesAggregates(AnalyticsUsersAggregatesData[] data);
     public record EvaluationQualityV2TopicEvaluationV2();
     public record PresenceEventOrganizationPresence(string Id, string SystemPresence);
     public record PresenceEventUserPresence(PresenceEventOrganizationPresence PresenceDefinition, bool? Primary, string Message, DateTime? ModifiedDate);

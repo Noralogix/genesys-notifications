@@ -5,10 +5,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Reactive.Linq;
 
-var appConfigName = "appsettings.dev.json";
+var appConfigName = "appsettings.json";
 var builder = new ConfigurationBuilder()
              .SetBasePath(Directory.GetCurrentDirectory())
-             .AddJsonFile(appConfigName, optional: false, reloadOnChange: true);
+             .AddJsonFile(appConfigName, optional: false, reloadOnChange: true)
+             .AddUserSecrets<Program>();
 var configurations = builder.Build();
 var genesysConfig = configurations.Get<GenesysConfig>();
 var appConfig = configurations.Get<PurecloudAppConfig>();
@@ -19,11 +20,11 @@ var client = new GenesysHttpClient(genesysConfig);
 var ds = new DataService();
 try
 {
-    //var users = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudUsers);
-    //var usersIds = users.Select(u => u.Id).ToArray();
-    var usersIds = appConfig.Users;
-    //var queues = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudQueues);
-    //var queuesIds = queues.Select(u => u.Id).ToArray();
+    var users = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudUsers);
+    var usersIds = users.Select(u => u.Id).ToArray();
+    //var usersIds = appConfig.Users;
+    var queues = await AzStorage.LoadDataAsync(appConfig, AzStorage.PurecloudQueues);
+    var queuesIds = queues.Select(u => u.Id).ToArray();
 
 
     //logger.LogInformation("User count {UCount}. Queues count {QCount}", users.Count, queues.Count);
@@ -36,7 +37,7 @@ try
             //.Add<QueueConversationCallEventTopicCallConversation>("v2.routing.queues.{id}.conversations.calls", queuesIds)
             //.Add<EvaluationQualityV2TopicEvaluationV2>("v2.quality.evaluations")
             .Add<NotificationData<AnalyticsUsersAggregates>>("v2.analytics.users.{id}.aggregates", usersIds)
-            //.Add<NotificationData<AnalyticsUsersAggregates>>("v2.analytics.queues.{id}.observations", queuesIds)
+            .Add<NotificationData<AnalyticsQueuesAggregates>>("v2.analytics.queues.{id}.observations", queuesIds)
             //.Add<NotificationData<PresenceEventUserPresence>>("v2.users.{id}.presence", usersIds)
             .CreateAsync())
         {
@@ -71,6 +72,13 @@ try
                 });
 
             notifications.Streams.Domain
+                .OfType<NotificationData<AnalyticsQueuesAggregates>>()
+                .Subscribe(e =>
+                {
+                    Console.WriteLine("[{0}] {1}", DateTime.Now, e.TopicName);
+                });
+
+            notifications.Streams.Domain
                 .OfType<NotificationData<PresenceEventUserPresence>>()
                 .Where(p => p.TopicName.Contains("b16b0516") && p.EventBody.PresenceDefinition?.SystemPresence == "AVAILABLE")
                 .Subscribe(p => Console.WriteLine("[{0}] Taras-{1} AVAILABLE with filtering.", DateTime.Now, p.UserId()));
@@ -81,11 +89,11 @@ try
                 .Subscribe(up => Console.WriteLine("[{0}] User-{1} {2}", DateTime.Now, up.Id, up.Presence));
 
             notifications.Streams.Pong
-                .Subscribe(_ => Console.WriteLine("Pong"));
+                .Subscribe(p => Console.WriteLine("[{0}] Pong {1}", p.Date, p.ChannelId));
             notifications.Streams.Heartbeats
-                .Subscribe(_ => Console.WriteLine("Heart beat"));
+                .Subscribe(h => Console.WriteLine("[{0}] Heart beat {1}", h.Date, h.ChannelId));
             notifications.Streams.SocketClosing
-                .Subscribe(_ => Console.WriteLine("Socket closing"));
+                .Subscribe(sc => Console.WriteLine("[{0}] Socket closing {1}", sc.Date, sc.ChannelId));
             notifications.Streams.System
                 .Subscribe(s => Console.WriteLine("System {0}", s.SystemTopicType, s.Reason, s.ChannelId, s.UserId));
             notifications.Ping();

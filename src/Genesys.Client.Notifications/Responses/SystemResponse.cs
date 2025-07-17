@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reactive.Subjects;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Genesys.Client.Notifications.Responses
 {
-    public class SystemResponse
+    public class SystemResponse : IChannelResponse
     {
         private static Lazy<JsonSerializerOptions> _options = new Lazy<JsonSerializerOptions>(() =>
         {
@@ -53,6 +51,7 @@ namespace Genesys.Client.Notifications.Responses
             {
                 var data = JsonSerializer.Deserialize<SystemResponse>(message.Raw, _options.Value);
                 data.Date = DateTime.UtcNow;
+                data.ChannelId = message.ChannelId;
                 subject.OnNext(data);
                 return true;
             }
